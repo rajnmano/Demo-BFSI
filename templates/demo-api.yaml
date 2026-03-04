@@ -1,0 +1,1353 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Banking System API v2 - Clean implementation following Hotel/Facilities API patterns'
+
+# =============================================================================
+# LESSONS LEARNED FROM PREVIOUS BILLING API ISSUES:
+# 1. Lambda code must be inline (not placeholder) - no separate deployment step
+# 2. IAM permissions must include dynamodb:Query explicitly
+# 3. Environment variables use !Ref which returns physical table names correctly
+# 4. API key header must be X-API-Key (matching OpenAPI spec)
+# 5. OpenAPI spec uploaded to S3 for AgentCore Gateway registration
+# 6. Custom resource for API key value retrieval (for outputs)
+# =============================================================================
+
+Parameters:
+  SeedDataUrl:
+    Type: String
+    Description: 'URL to fetch banking seed data from (JSON format)'
+    Default: ''
+  OpenApiSpecUrl:
+    Type: String
+    Description: 'URL to fetch OpenAPI specification from (YAML format)'
+    Default: ''
+  SharedApiKeyId:
+    Type: String
+    Description: '(Optional) ID of a shared API key to use instead of creating a new one. When provided, this stack will use the shared key for its usage plan.'
+    Default: ''
+
+Conditions:
+  UseSharedApiKey: !Not [!Equals [!Ref SharedApiKeyId, '']]
+  CreateOwnApiKey: !Equals [!Ref SharedApiKeyId, '']
+
+Resources:
+  # ============================================================================
+  # CLOUDWATCH LOG GROUPS
+  # ============================================================================
+  
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${AWS::StackName}'
+      RetentionInDays: 7
+    DeletionPolicy: Delete
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-banking-api'
+      RetentionInDays: 7
+    DeletionPolicy: Delete
+
+  # ============================================================================
+  # IAM ROLES
+  # ============================================================================
+  
+  ApiGatewayCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+    DeletionPolicy: Delete
+
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayCloudWatchRole.Arn
+
+  # Lambda Execution Role - CRITICAL: Must include dynamodb:Query permission
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CloudWatchLogsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub '${LambdaLogGroup.Arn}:*'
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt TransactionsTable.Arn
+                  - !Sub '${TransactionsTable.Arn}/index/*'
+                  - !GetAtt InvoicesTable.Arn
+                  - !Sub '${InvoicesTable.Arn}/index/*'
+                  - !GetAtt RefundsTable.Arn
+                  - !Sub '${RefundsTable.Arn}/index/*'
+                  - !GetAtt DisputesTable.Arn
+                  - !Sub '${DisputesTable.Arn}/index/*'
+        - PolicyName: XRayAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: '*'
+    DeletionPolicy: Delete
+
+  # API Key Retrieval Role
+  ApiKeyRetrievalRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ApiGatewayAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - apigateway:GET
+                Resource: !Sub 'arn:aws:apigateway:${AWS::Region}::/apikeys/*'
+    DeletionPolicy: Delete
+
+  # Data Seeding Role
+  DataSeedingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBSeedingAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:BatchWriteItem
+                Resource:
+                  - !GetAtt TransactionsTable.Arn
+                  - !GetAtt InvoicesTable.Arn
+                  - !GetAtt RefundsTable.Arn
+                  - !GetAtt DisputesTable.Arn
+        - PolicyName: S3ReadAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: 'arn:aws:s3:::*/*'
+    DeletionPolicy: Delete
+
+  # S3 Upload Role
+  S3UploadRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:GetObject
+                Resource:
+                  - !Sub '${OpenApiBucket.Arn}'
+                  - !Sub '${OpenApiBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: 'arn:aws:s3:::*/*'
+    DeletionPolicy: Delete
+
+  # ============================================================================
+  # DYNAMODB TABLES
+  # ============================================================================
+  
+  TransactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: transactionId
+          AttributeType: S
+        - AttributeName: customerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: transactionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CustomerIdIndex
+          KeySchema:
+            - AttributeName: customerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+    DeletionPolicy: Delete
+
+  InvoicesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: invoiceId
+          AttributeType: S
+        - AttributeName: customerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: invoiceId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CustomerIdIndex
+          KeySchema:
+            - AttributeName: customerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+    DeletionPolicy: Delete
+
+  RefundsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: refundId
+          AttributeType: S
+        - AttributeName: transactionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: refundId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: TransactionIdIndex
+          KeySchema:
+            - AttributeName: transactionId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+    DeletionPolicy: Delete
+
+  DisputesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: disputeId
+          AttributeType: S
+        - AttributeName: customerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: disputeId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CustomerIdIndex
+          KeySchema:
+            - AttributeName: customerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+    DeletionPolicy: Delete
+
+  # ============================================================================
+  # S3 BUCKET FOR OPENAPI SPEC
+  # ============================================================================
+  
+  OpenApiBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    DeletionPolicy: Delete
+
+
+  # ============================================================================
+  # CUSTOM RESOURCE: DATA SEEDING
+  # ============================================================================
+  
+  SeedDataFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt DataSeedingRole.Arn
+      Timeout: 300
+      MemorySize: 256
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+          const { DynamoDBDocumentClient, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
+          const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+          const https = require('https');
+          const http = require('http');
+          
+          const client = new DynamoDBClient({});
+          const docClient = DynamoDBDocumentClient.from(client);
+          const s3Client = new S3Client({});
+          
+          // Fetch data from S3 URI (s3://bucket/key) or HTTPS URL
+          async function fetchData(url) {
+            // Handle S3 URI format: s3://bucket-name/path/to/file.json
+            if (url.startsWith('s3://')) {
+              const parts = url.slice(5).split('/');
+              const bucket = parts[0];
+              const key = parts.slice(1).join('/');
+              console.log(`Fetching from S3: bucket=${bucket}, key=${key}`);
+              
+              const response = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+              const body = await response.Body.transformToString();
+              return JSON.parse(body);
+            }
+            
+            // Handle HTTPS/HTTP URLs (for public URLs)
+            return new Promise((resolve, reject) => {
+              const protocol = url.startsWith('https:') ? https : http;
+              protocol.get(url, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try { resolve(JSON.parse(data)); }
+                  catch (e) { reject(new Error('Failed to parse JSON: ' + e.message)); }
+                });
+              }).on('error', reject);
+            });
+          }
+          
+          async function batchWrite(tableName, items) {
+            for (let i = 0; i < items.length; i += 25) {
+              const batch = items.slice(i, i + 25);
+              await docClient.send(new BatchWriteCommand({
+                RequestItems: { [tableName]: batch.map(item => ({ PutRequest: { Item: item } })) }
+              }));
+              console.log(`Wrote batch to ${tableName}`);
+            }
+          }
+          
+          async function sendResponse(event, context, status, data = {}) {
+            const body = JSON.stringify({
+              Status: status,
+              Reason: data.Reason || 'See CloudWatch Log Stream: ' + context.logStreamName,
+              PhysicalResourceId: context.logStreamName,
+              StackId: event.StackId,
+              RequestId: event.RequestId,
+              LogicalResourceId: event.LogicalResourceId,
+              Data: data
+            });
+            
+            const url = new URL(event.ResponseURL);
+            return new Promise((resolve, reject) => {
+              const req = https.request({
+                hostname: url.hostname,
+                port: 443,
+                path: url.pathname + url.search,
+                method: 'PUT',
+                headers: { 'Content-Type': '', 'Content-Length': body.length }
+              }, res => { console.log('Response sent:', res.statusCode); resolve(); });
+              req.on('error', reject);
+              req.write(body);
+              req.end();
+            });
+          }
+          
+          // Default seed data if no URL provided - ALIGNED WITH DEMO SCRIPT
+          function getDefaultData() {
+            return {
+              transactions: [
+                { transactionId: 'TXN-2024-001234', customerId: 'CUST-12345', amount: 149.99, currency: 'USD', transactionDate: '2024-01-15T10:30:00Z', status: 'Completed', type: 'Charge', description: 'Monthly subscription - Premium Plan', vendorName: 'AnyCompany Services', paymentMethodType: 'CreditCard', paymentMethodLast4: '4242' },
+                { transactionId: 'TXN-2024-001235', customerId: 'CUST-12345', amount: 149.99, currency: 'USD', transactionDate: '2024-01-15T10:31:00Z', status: 'Completed', type: 'Charge', description: 'Monthly subscription - Premium Plan', vendorName: 'AnyCompany Services', paymentMethodType: 'CreditCard', paymentMethodLast4: '4242', notes: 'DUPLICATE CHARGE - Same service charged twice within 1 minute' },
+                { transactionId: 'TXN-2024-001236', customerId: 'CUST-12345', amount: 49.99, currency: 'USD', transactionDate: '2024-01-20T14:15:00Z', status: 'Completed', type: 'Charge', description: 'Additional user license', vendorName: 'AnyCompany Services', paymentMethodType: 'CreditCard', paymentMethodLast4: '4242' },
+                { transactionId: 'TXN-2024-001237', customerId: 'CUST-67890', amount: 199.99, currency: 'USD', transactionDate: '2024-01-10T09:00:00Z', status: 'Completed', type: 'Charge', description: 'Annual subscription - Business Plan', vendorName: 'CloudTech Solutions', paymentMethodType: 'CreditCard', paymentMethodLast4: '5555' },
+                { transactionId: 'TXN-2024-001238', customerId: 'CUST-67890', amount: 299.99, currency: 'USD', transactionDate: '2024-01-12T11:30:00Z', status: 'Completed', type: 'Charge', description: 'Professional services - Consulting', vendorName: 'Expert Consultants Inc', paymentMethodType: 'CreditCard', paymentMethodLast4: '5555', notes: 'VENDOR ERROR - Customer was charged for 3 hours instead of 2 hours at $99.99/hour' }
+              ],
+              invoices: [
+                { invoiceId: 'INV-2024-001', customerId: 'CUST-12345', invoiceDate: '2024-01-15', dueDate: '2024-02-14', totalAmount: 299.98, currency: 'USD', status: 'Paid', lineItems: JSON.stringify([{ lineItemId: 'LINE-001', description: 'Monthly subscription - Premium Plan', quantity: 1, unitPrice: 149.99, amount: 149.99, transactionId: 'TXN-2024-001234' }, { lineItemId: 'LINE-002', description: 'Monthly subscription - Premium Plan (DUPLICATE)', quantity: 1, unitPrice: 149.99, amount: 149.99, transactionId: 'TXN-2024-001235' }]) },
+                { invoiceId: 'INV-2024-002', customerId: 'CUST-12345', invoiceDate: '2024-01-20', dueDate: '2024-02-19', totalAmount: 49.99, currency: 'USD', status: 'Paid', lineItems: JSON.stringify([{ lineItemId: 'LINE-003', description: 'Additional user license', quantity: 1, unitPrice: 49.99, amount: 49.99, transactionId: 'TXN-2024-001236' }]) },
+                { invoiceId: 'INV-2024-003', customerId: 'CUST-67890', invoiceDate: '2024-01-10', dueDate: '2024-02-09', totalAmount: 199.99, currency: 'USD', status: 'Paid', lineItems: JSON.stringify([{ lineItemId: 'LINE-004', description: 'Annual subscription - Business Plan', quantity: 1, unitPrice: 199.99, amount: 199.99, transactionId: 'TXN-2024-001237' }]) }
+              ],
+              refunds: [
+                { refundId: 'REF-2024-001', transactionId: 'TXN-2024-001235', customerId: 'CUST-12345', amount: 149.99, currency: 'USD', status: 'Completed', reason: 'Duplicate charge - system error', expedited: true, createdAt: '2024-01-17T10:00:00Z', completedAt: '2024-01-22T14:30:00Z', estimatedCompletionDate: '2024-01-22', paymentMethodType: 'CreditCard', paymentMethodLast4: '4242' }
+              ],
+              disputes: [
+                { disputeId: 'DISP-2024-001', customerId: 'CUST-67890', transactionId: 'TXN-2024-001238', amount: 99.99, currency: 'USD', reason: 'Overcharged for consulting services - billed for 3 hours instead of 2', status: 'UnderReview', createdAt: '2024-01-18T09:15:00Z', updatedAt: '2024-01-19T14:20:00Z' }
+              ]
+            };
+          }
+          
+          exports.handler = async (event, context) => {
+            console.log('Event:', JSON.stringify(event, null, 2));
+            
+            try {
+              if (event.RequestType === 'Delete') {
+                await sendResponse(event, context, 'SUCCESS');
+                return;
+              }
+              
+              const props = event.ResourceProperties;
+              let data = props.SeedDataUrl ? await fetchData(props.SeedDataUrl) : getDefaultData();
+              
+              if (data.transactions?.length) await batchWrite(props.TransactionsTableName, data.transactions);
+              if (data.invoices?.length) await batchWrite(props.InvoicesTableName, data.invoices);
+              if (data.refunds?.length) await batchWrite(props.RefundsTableName, data.refunds);
+              if (data.disputes?.length) await batchWrite(props.DisputesTableName, data.disputes);
+              
+              await sendResponse(event, context, 'SUCCESS', {
+                TransactionCount: data.transactions?.length || 0,
+                InvoiceCount: data.invoices?.length || 0
+              });
+            } catch (error) {
+              console.error('Error:', error);
+              await sendResponse(event, context, 'FAILED', { Reason: error.message });
+            }
+          };
+    DeletionPolicy: Delete
+
+  BankingDataSeeding:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt SeedDataFn.Arn
+      TransactionsTableName: !Ref TransactionsTable
+      InvoicesTableName: !Ref InvoicesTable
+      RefundsTableName: !Ref RefundsTable
+      DisputesTableName: !Ref DisputesTable
+      SeedDataUrl: !Ref SeedDataUrl
+    DependsOn:
+      - TransactionsTable
+      - InvoicesTable
+      - RefundsTable
+      - DisputesTable
+
+  # ============================================================================
+  # CUSTOM RESOURCE: API KEY VALUE RETRIEVAL
+  # ============================================================================
+  
+  ApiKeyFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt ApiKeyRetrievalRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import cfnresponse
+
+          def handler(event, context):
+              try:
+                  print(f"Event: {json.dumps(event)}")
+                  
+                  if event['RequestType'] == 'Delete':
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                      return
+                  
+                  api_key_id = event['ResourceProperties']['ApiKeyId']
+                  client = boto3.client('apigateway')
+                  response = client.get_api_key(apiKey=api_key_id, includeValue=True)
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                      'ApiKeyValue': response['value']
+                  })
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+    DeletionPolicy: Delete
+
+  # Custom Resource to Get API Key Value (only when creating own key)
+  ApiKeyValueRetrieval:
+    Type: AWS::CloudFormation::CustomResource
+    Condition: CreateOwnApiKey
+    Properties:
+      ServiceToken: !GetAtt ApiKeyFn.Arn
+      ApiKeyId: !Ref BankingApiKey
+    DependsOn: BankingApiKey
+
+
+  # ============================================================================
+  # CUSTOM RESOURCE: OPENAPI SPEC UPLOAD TO S3
+  # ============================================================================
+  
+  S3UploadFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt S3UploadRole.Arn
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import cfnresponse
+
+          def handler(event, context):
+              try:
+                  print(f"Event: {json.dumps(event)}")
+                  
+                  bucket = event['ResourceProperties']['BucketName']
+                  s3 = boto3.client('s3')
+                  
+                  if event['RequestType'] == 'Delete':
+                      try:
+                          s3.delete_object(Bucket=bucket, Key='openapi.yaml')
+                      except:
+                          pass
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                      return
+                  
+                  url = event['ResourceProperties'].get('OpenApiSpecUrl', '')
+                  api_url = event['ResourceProperties']['ApiGatewayUrl']
+                  
+                  if url:
+                      # Handle S3 URLs (s3://bucket/key)
+                      if url.startswith('s3://'):
+                          parts = url[5:].split('/', 1)
+                          source_bucket = parts[0]
+                          source_key = parts[1] if len(parts) > 1 else ''
+                          response = s3.get_object(Bucket=source_bucket, Key=source_key)
+                          content = response['Body'].read().decode('utf-8')
+                      else:
+                          # Handle HTTP/HTTPS URLs
+                          import urllib.request
+                          with urllib.request.urlopen(url) as response:
+                              content = response.read().decode('utf-8')
+                  else:
+                      # Default minimal OpenAPI spec
+                      content = '''openapi: 3.0.1
+          info:
+            title: Banking System API
+            version: 1.0.0
+          servers:
+            - url: ${API_GATEWAY_URL}
+          paths: {}
+          components:
+            securitySchemes:
+              ApiKeyAuth:
+                type: apiKey
+                in: header
+                name: X-API-Key
+          security:
+            - ApiKeyAuth: []
+          '''
+                  
+                  content = content.replace('${API_GATEWAY_URL}', api_url)
+                  
+                  s3.put_object(
+                      Bucket=bucket,
+                      Key='openapi.yaml',
+                      Body=content,
+                      ContentType='application/x-yaml'
+                  )
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                      'S3Location': f's3://{bucket}/openapi.yaml',
+                      'BucketName': bucket,
+                      'ObjectKey': 'openapi.yaml'
+                  })
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+    DeletionPolicy: Delete
+
+  OpenApiUpload:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt S3UploadFn.Arn
+      BucketName: !Ref OpenApiBucket
+      OpenApiSpecUrl: !Ref OpenApiSpecUrl
+      ApiGatewayUrl: !Sub 'https://${BankingApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    DependsOn: OpenApiBucket
+
+  # ============================================================================
+  # LAMBDA FUNCTIONS - ACTUAL IMPLEMENTATION (NOT PLACEHOLDERS!)
+  # ============================================================================
+  
+  GetTxnFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      TracingConfig:
+        Mode: Active
+      LoggingConfig:
+        LogGroup: !Ref LambdaLogGroup
+      Environment:
+        Variables:
+          TRANSACTIONS_TABLE: !Ref TransactionsTable
+          CUSTOMER_ID_INDEX: CustomerIdIndex
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          from boto3.dynamodb.conditions import Key
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['TRANSACTIONS_TABLE'])
+          INDEX_NAME = os.environ['CUSTOMER_ID_INDEX']
+
+          def lambda_handler(event, context):
+              print(f"Event: {json.dumps(event)}")
+              
+              try:
+                  params = event.get('queryStringParameters') or {}
+                  customer_id = params.get('customerId')
+                  
+                  if not customer_id:
+                      return response(400, {'error': 'Missing required parameter', 'code': 'MISSING_CUSTOMER_ID', 'details': 'customerId is required'})
+                  
+                  result = table.query(
+                      IndexName=INDEX_NAME,
+                      KeyConditionExpression=Key('customerId').eq(customer_id)
+                  )
+                  
+                  transactions = result.get('Items', [])
+                  
+                  # Apply optional filters
+                  start_date = params.get('startDate')
+                  end_date = params.get('endDate')
+                  txn_type = params.get('type')
+                  
+                  if start_date:
+                      transactions = [t for t in transactions if t.get('transactionDate', '') >= start_date]
+                  if end_date:
+                      transactions = [t for t in transactions if t.get('transactionDate', '') <= end_date + 'T23:59:59Z']
+                  if txn_type:
+                      transactions = [t for t in transactions if t.get('type') == txn_type]
+                  
+                  return response(200, {
+                      'transactions': transactions,
+                      'count': len(transactions),
+                      'customerId': customer_id
+                  })
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  return response(500, {'error': 'Internal server error', 'details': str(e)})
+
+          def response(status_code, body):
+              return {
+                  'statusCode': status_code,
+                  'headers': {
+                      'Content-Type': 'application/json',
+                      'Access-Control-Allow-Origin': '*'
+                  },
+                  'body': json.dumps(body, default=str)
+              }
+    DeletionPolicy: Delete
+
+  GetInvFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      TracingConfig:
+        Mode: Active
+      LoggingConfig:
+        LogGroup: !Ref LambdaLogGroup
+      Environment:
+        Variables:
+          INVOICES_TABLE: !Ref InvoicesTable
+          CUSTOMER_ID_INDEX: CustomerIdIndex
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          from boto3.dynamodb.conditions import Key
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['INVOICES_TABLE'])
+          INDEX_NAME = os.environ['CUSTOMER_ID_INDEX']
+
+          def lambda_handler(event, context):
+              print(f"Event: {json.dumps(event)}")
+              
+              try:
+                  params = event.get('queryStringParameters') or {}
+                  customer_id = params.get('customerId')
+                  invoice_id = params.get('invoiceId')
+                  
+                  if not customer_id:
+                      return response(400, {'error': 'Missing required parameter', 'code': 'MISSING_CUSTOMER_ID', 'details': 'customerId is required'})
+                  
+                  result = table.query(
+                      IndexName=INDEX_NAME,
+                      KeyConditionExpression=Key('customerId').eq(customer_id)
+                  )
+                  
+                  invoices = result.get('Items', [])
+                  
+                  # Filter by invoice ID if provided
+                  if invoice_id:
+                      invoices = [i for i in invoices if i.get('invoiceId') == invoice_id]
+                  
+                  # Parse lineItems JSON string back to array
+                  for inv in invoices:
+                      if isinstance(inv.get('lineItems'), str):
+                          try:
+                              inv['lineItems'] = json.loads(inv['lineItems'])
+                          except:
+                              inv['lineItems'] = []
+                  
+                  return response(200, {
+                      'invoices': invoices,
+                      'count': len(invoices),
+                      'customerId': customer_id
+                  })
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  return response(500, {'error': 'Internal server error', 'details': str(e)})
+
+          def response(status_code, body):
+              return {
+                  'statusCode': status_code,
+                  'headers': {
+                      'Content-Type': 'application/json',
+                      'Access-Control-Allow-Origin': '*'
+                  },
+                  'body': json.dumps(body, default=str)
+              }
+    DeletionPolicy: Delete
+
+
+  RefundFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      TracingConfig:
+        Mode: Active
+      LoggingConfig:
+        LogGroup: !Ref LambdaLogGroup
+      Environment:
+        Variables:
+          REFUNDS_TABLE: !Ref RefundsTable
+          TRANSACTIONS_TABLE: !Ref TransactionsTable
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          import uuid
+          from datetime import datetime, timedelta
+
+          dynamodb = boto3.resource('dynamodb')
+          refunds_table = dynamodb.Table(os.environ['REFUNDS_TABLE'])
+          transactions_table = dynamodb.Table(os.environ['TRANSACTIONS_TABLE'])
+
+          def lambda_handler(event, context):
+              print(f"Event: {json.dumps(event)}")
+              
+              try:
+                  body = json.loads(event.get('body', '{}'))
+                  
+                  transaction_id = body.get('transactionId')
+                  amount = body.get('amount')
+                  reason = body.get('reason')
+                  expedite = body.get('expedite', False)
+                  
+                  if not transaction_id or amount is None or not reason:
+                      return response(400, {
+                          'error': 'Missing required parameters',
+                          'code': 'MISSING_PARAMETERS',
+                          'details': 'transactionId, amount, and reason are required'
+                      })
+                  
+                  # Get original transaction
+                  txn_result = transactions_table.get_item(Key={'transactionId': transaction_id})
+                  txn = txn_result.get('Item')
+                  
+                  if not txn:
+                      return response(404, {
+                          'error': 'Transaction not found',
+                          'code': 'TRANSACTION_NOT_FOUND',
+                          'details': f'No transaction found with ID {transaction_id}'
+                      })
+                  
+                  # Validate amount
+                  if float(amount) > float(txn.get('amount', 0)):
+                      return response(400, {
+                          'error': 'Invalid refund amount',
+                          'code': 'INVALID_REFUND_AMOUNT',
+                          'details': f'Refund amount cannot exceed original transaction amount of {txn.get("amount")}'
+                      })
+                  
+                  # Create refund
+                  refund_id = f'REF-{datetime.now().strftime("%Y")}-{str(uuid.uuid4())[:8].upper()}'
+                  now = datetime.utcnow()
+                  days_to_complete = 5 if expedite else 10
+                  estimated_completion = (now + timedelta(days=days_to_complete)).strftime('%Y-%m-%d')
+                  
+                  refund = {
+                      'refundId': refund_id,
+                      'transactionId': transaction_id,
+                      'amount': float(amount),
+                      'currency': txn.get('currency', 'USD'),
+                      'status': 'Pending',
+                      'reason': reason,
+                      'expedited': expedite,
+                      'createdAt': now.isoformat() + 'Z',
+                      'estimatedCompletionDate': estimated_completion,
+                      'paymentMethodType': txn.get('paymentMethodType', 'Unknown'),
+                      'paymentMethodLast4': txn.get('paymentMethodLast4', '****')
+                  }
+                  
+                  refunds_table.put_item(Item=refund)
+                  
+                  return response(201, {'refund': refund})
+                  
+              except json.JSONDecodeError:
+                  return response(400, {'error': 'Invalid JSON body', 'code': 'INVALID_JSON'})
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  return response(500, {'error': 'Internal server error', 'details': str(e)})
+
+          def response(status_code, body):
+              return {
+                  'statusCode': status_code,
+                  'headers': {
+                      'Content-Type': 'application/json',
+                      'Access-Control-Allow-Origin': '*'
+                  },
+                  'body': json.dumps(body, default=str)
+              }
+    DeletionPolicy: Delete
+
+  DisputeFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      TracingConfig:
+        Mode: Active
+      LoggingConfig:
+        LogGroup: !Ref LambdaLogGroup
+      Environment:
+        Variables:
+          DISPUTES_TABLE: !Ref DisputesTable
+          CUSTOMER_ID_INDEX: CustomerIdIndex
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          from boto3.dynamodb.conditions import Key
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['DISPUTES_TABLE'])
+          INDEX_NAME = os.environ['CUSTOMER_ID_INDEX']
+
+          def lambda_handler(event, context):
+              print(f"Event: {json.dumps(event)}")
+              
+              try:
+                  params = event.get('queryStringParameters') or {}
+                  customer_id = params.get('customerId')
+                  transaction_id = params.get('transactionId')
+                  
+                  if not customer_id:
+                      return response(400, {'error': 'Missing required parameter', 'code': 'MISSING_CUSTOMER_ID', 'details': 'customerId is required'})
+                  
+                  result = table.query(
+                      IndexName=INDEX_NAME,
+                      KeyConditionExpression=Key('customerId').eq(customer_id)
+                  )
+                  
+                  disputes = result.get('Items', [])
+                  
+                  # Filter by transaction ID if provided
+                  if transaction_id:
+                      disputes = [d for d in disputes if d.get('transactionId') == transaction_id]
+                  
+                  return response(200, {
+                      'disputes': disputes,
+                      'count': len(disputes),
+                      'customerId': customer_id
+                  })
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  return response(500, {'error': 'Internal server error', 'details': str(e)})
+
+          def response(status_code, body):
+              return {
+                  'statusCode': status_code,
+                  'headers': {
+                      'Content-Type': 'application/json',
+                      'Access-Control-Allow-Origin': '*'
+                  },
+                  'body': json.dumps(body, default=str)
+              }
+    DeletionPolicy: Delete
+
+  # ============================================================================
+  # LAMBDA PERMISSIONS FOR API GATEWAY
+  # ============================================================================
+  
+  GetTransactionsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetTxnFn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BankingApi}/*'
+
+  GetInvoicesPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetInvFn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BankingApi}/*'
+
+  ProcessRefundPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RefundFn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BankingApi}/*'
+
+  GetDisputesPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DisputeFn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BankingApi}/*'
+
+
+  # ============================================================================
+  # API GATEWAY REST API
+  # ============================================================================
+  
+  BankingApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub '${AWS::StackName}-BankingAPI'
+      Description: 'Banking System API v2 for dispute resolution'
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+    DeletionPolicy: Delete
+
+  # ============================================================================
+  # API RESOURCES
+  # ============================================================================
+  
+  TransactionsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref BankingApi
+      ParentId: !GetAtt BankingApi.RootResourceId
+      PathPart: transactions
+
+  InvoicesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref BankingApi
+      ParentId: !GetAtt BankingApi.RootResourceId
+      PathPart: invoices
+
+  RefundsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref BankingApi
+      ParentId: !GetAtt BankingApi.RootResourceId
+      PathPart: refunds
+
+  DisputesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref BankingApi
+      ParentId: !GetAtt BankingApi.RootResourceId
+      PathPart: disputes
+
+  # ============================================================================
+  # API METHODS - GET /transactions
+  # ============================================================================
+  
+  TransactionsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref TransactionsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.querystring.customerId: true
+        method.request.querystring.startDate: false
+        method.request.querystring.endDate: false
+        method.request.querystring.type: false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetTxnFn.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  TransactionsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref TransactionsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # ============================================================================
+  # API METHODS - GET /invoices
+  # ============================================================================
+  
+  InvoicesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref InvoicesResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.querystring.customerId: true
+        method.request.querystring.invoiceId: false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetInvFn.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  InvoicesOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref InvoicesResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # ============================================================================
+  # API METHODS - POST /refunds
+  # ============================================================================
+  
+  RefundsPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref RefundsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RefundFn.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 201
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  RefundsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref RefundsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # ============================================================================
+  # API METHODS - GET /disputes
+  # ============================================================================
+  
+  DisputesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref DisputesResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.querystring.customerId: true
+        method.request.querystring.transactionId: false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DisputeFn.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  DisputesOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref DisputesResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+
+  # ============================================================================
+  # API GATEWAY DEPLOYMENT AND STAGE
+  # ============================================================================
+  
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - TransactionsGetMethod
+      - TransactionsOptionsMethod
+      - InvoicesGetMethod
+      - InvoicesOptionsMethod
+      - RefundsPostMethod
+      - RefundsOptionsMethod
+      - DisputesGetMethod
+      - DisputesOptionsMethod
+    Properties:
+      RestApiId: !Ref BankingApi
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref BankingApi
+      DeploymentId: !Ref ApiDeployment
+      StageName: prod
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          LoggingLevel: INFO
+          DataTraceEnabled: true
+          MetricsEnabled: true
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","integrationError":"$context.integrationErrorMessage"}'
+
+  # ============================================================================
+  # API KEY AND USAGE PLAN
+  # ============================================================================
+  
+  # API Key (only created when not using shared key)
+  BankingApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Condition: CreateOwnApiKey
+    DependsOn: ApiStage
+    Properties:
+      Name: !Sub '${AWS::StackName}-api-key'
+      Description: 'API Key for Banking System API v2'
+      Enabled: true
+      GenerateDistinctId: true
+
+  BankingUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: ApiStage
+    Properties:
+      UsagePlanName: !Sub '${AWS::StackName}-usage-plan'
+      Description: 'Usage plan for Banking System API v2'
+      ApiStages:
+        - ApiId: !Ref BankingApi
+          Stage: prod
+      Throttle:
+        BurstLimit: 100
+        RateLimit: 50
+
+  # Usage Plan Key - associates the effective API key with the usage plan
+  BankingUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !If [UseSharedApiKey, !Ref SharedApiKeyId, !Ref BankingApiKey]
+      KeyType: API_KEY
+      UsagePlanId: !Ref BankingUsagePlan
+
+# =============================================================================
+# OUTPUTS - Consistent interface matching hotel-api.yaml pattern
+# Required outputs: ApiUrl, ApiKey, OpenApiSpecS3Location
+# =============================================================================
+
+Outputs:
+  # Required output: API endpoint URL
+  ApiUrl:
+    Description: 'URL of the Banking API'
+    Value: !Sub 'https://${BankingApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+
+  # Required output: API key value for authentication (own key when not using shared)
+  ApiKey:
+    Condition: CreateOwnApiKey
+    Description: 'Value of the API Key for authentication'
+    Value: !GetAtt ApiKeyValueRetrieval.ApiKeyValue
+
+  # Required output: S3 location of OpenAPI spec
+  OpenApiSpecS3Location:
+    Description: 'S3 location of the uploaded OpenAPI specification'
+    Value: !GetAtt OpenApiUpload.S3Location
+
+  # Additional outputs for reference
+  ApiKeyId:
+    Description: 'ID of the effective API key (shared or own)'
+    Value: !If [UseSharedApiKey, !Ref SharedApiKeyId, !Ref BankingApiKey]
+
+  OpenApiBucketName:
+    Description: 'S3 bucket containing OpenAPI specification'
+    Value: !Ref OpenApiBucket
+
+  TransactionsTableName:
+    Description: 'DynamoDB Transactions table name'
+    Value: !Ref TransactionsTable
+
+  InvoicesTableName:
+    Description: 'DynamoDB Invoices table name'
+    Value: !Ref InvoicesTable
+
+  RefundsTableName:
+    Description: 'DynamoDB Refunds table name'
+    Value: !Ref RefundsTable
+
+  DisputesTableName:
+    Description: 'DynamoDB Disputes table name'
+    Value: !Ref DisputesTable

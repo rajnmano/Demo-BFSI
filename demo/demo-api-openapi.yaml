@@ -1,0 +1,550 @@
+openapi: 3.0.1
+info:
+  title: Billing System API
+  description: |
+    REST API for billing transaction management, invoice retrieval, refund
+    processing, and dispute tracking. This API integrates with Amazon Connect
+    Assistant via Bedrock AgentCore Gateway to enable AI-powered billing
+    dispute resolution.
+  version: 2.0.0
+  contact:
+    name: AWS Workshop Team
+  license:
+    name: MIT
+
+servers:
+  - url: https://af4ytzbsul.execute-api.us-west-2.amazonaws.com/prod
+    description: AWS API Gateway endpoint
+
+paths:
+  /transactions:
+    get:
+      operationId: getTransactions
+      summary: Retrieve customer transaction history
+      description: |
+        Retrieve detailed transaction history for a customer. Supports filtering
+        by date range and transaction type. Use this to analyze billing
+        discrepancies and identify duplicate charges or errors.
+      tags:
+        - Transaction Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: customerId
+          in: query
+          required: true
+          description: Unique customer identifier (e.g., CUST-12345)
+          schema:
+            type: string
+            example: CUST-12345
+        - name: startDate
+          in: query
+          required: false
+          description: Filter transactions from this date (ISO8601 format YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: '2024-01-01'
+        - name: endDate
+          in: query
+          required: false
+          description: Filter transactions to this date (ISO8601 format YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: '2024-12-31'
+        - name: type
+          in: query
+          required: false
+          description: Filter by transaction type
+          schema:
+            type: string
+            enum: [Charge, Refund, Adjustment, Credit]
+            example: Charge
+      responses:
+        '200':
+          description: List of transactions matching the criteria
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
+                  count:
+                    type: integer
+                    description: Number of transactions returned
+                  customerId:
+                    type: string
+                    description: Customer ID that was queried
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /invoices:
+    get:
+      operationId: getInvoices
+      summary: Retrieve customer invoices
+      description: |
+        Retrieve invoice details including line items for a customer. Can
+        retrieve all invoices or a specific invoice by ID. Use this to review
+        detailed billing breakdowns and identify incorrect charges.
+      tags:
+        - Invoice Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: customerId
+          in: query
+          required: true
+          description: Unique customer identifier
+          schema:
+            type: string
+            example: CUST-12345
+        - name: invoiceId
+          in: query
+          required: false
+          description: Specific invoice ID to retrieve
+          schema:
+            type: string
+            example: INV-2024-001
+      responses:
+        '200':
+          description: List of invoices with line items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invoice'
+                  count:
+                    type: integer
+                    description: Number of invoices returned
+                  customerId:
+                    type: string
+                    description: Customer ID that was queried
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /refunds:
+    post:
+      operationId: processRefund
+      summary: Process a refund for a transaction
+      description: |
+        Initiate refund processing for a specific transaction. This endpoint
+        creates a refund record and calculates estimated completion date based
+        on expedite flag. CRITICAL - This endpoint should only be called after
+        explicit human agent approval has been obtained.
+      tags:
+        - Refund Processing
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '201':
+          description: Refund created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  refund:
+                    $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /disputes:
+    get:
+      operationId: getDisputes
+      summary: Retrieve dispute records
+      description: |
+        Retrieve existing dispute records for a customer or specific transaction.
+        Use this to check if a dispute has already been filed before creating
+        a new one.
+      tags:
+        - Dispute Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: customerId
+          in: query
+          required: true
+          description: Unique customer identifier
+          schema:
+            type: string
+            example: CUST-12345
+        - name: transactionId
+          in: query
+          required: false
+          description: Filter disputes by specific transaction
+          schema:
+            type: string
+            example: TXN-2024-001
+      responses:
+        '200':
+          description: List of disputes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  disputes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Dispute'
+                  count:
+                    type: integer
+                    description: Number of disputes returned
+                  customerId:
+                    type: string
+                    description: Customer ID that was queried
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication (managed by Bedrock AgentCore Gateway)
+
+  schemas:
+    Transaction:
+      type: object
+      required:
+        - transactionId
+        - customerId
+        - amount
+        - currency
+        - transactionDate
+        - status
+        - type
+        - description
+      properties:
+        transactionId:
+          type: string
+          description: Unique transaction identifier
+          example: TXN-2024-001
+        customerId:
+          type: string
+          description: Customer identifier
+          example: CUST-12345
+        amount:
+          type: number
+          format: float
+          description: Transaction amount
+          example: 149.99
+        currency:
+          type: string
+          description: Currency code (ISO 4217)
+          example: USD
+        transactionDate:
+          type: string
+          format: date-time
+          description: When the transaction occurred
+          example: '2024-01-15T10:30:00Z'
+        status:
+          type: string
+          enum: [Completed, Pending, Failed, Refunded, Disputed]
+          description: Current transaction status
+          example: Completed
+        type:
+          type: string
+          enum: [Charge, Refund, Adjustment, Credit]
+          description: Transaction type
+          example: Charge
+        description:
+          type: string
+          description: Transaction description
+          example: Monthly subscription fee
+        vendorName:
+          type: string
+          description: Vendor name
+          example: AnyCompany Services
+        paymentMethodType:
+          type: string
+          description: Payment method type
+          example: CreditCard
+        paymentMethodLast4:
+          type: string
+          description: Last 4 digits of payment method
+          example: '4242'
+
+    Invoice:
+      type: object
+      required:
+        - invoiceId
+        - customerId
+        - invoiceDate
+        - dueDate
+        - totalAmount
+        - status
+        - lineItems
+      properties:
+        invoiceId:
+          type: string
+          description: Unique invoice identifier
+          example: INV-2024-001
+        customerId:
+          type: string
+          description: Customer identifier
+          example: CUST-12345
+        invoiceDate:
+          type: string
+          format: date
+          description: Invoice issue date
+          example: '2024-01-01'
+        dueDate:
+          type: string
+          format: date
+          description: Payment due date
+          example: '2024-01-31'
+        totalAmount:
+          type: number
+          format: float
+          description: Total invoice amount
+          example: 299.97
+        currency:
+          type: string
+          description: Currency code (ISO 4217)
+          example: USD
+        status:
+          type: string
+          enum: [Draft, Sent, Paid, Overdue, Cancelled]
+          description: Invoice status
+          example: Paid
+        lineItems:
+          type: array
+          description: Individual charges on the invoice
+          items:
+            $ref: '#/components/schemas/LineItem'
+
+    LineItem:
+      type: object
+      required:
+        - lineItemId
+        - description
+        - quantity
+        - unitPrice
+        - amount
+      properties:
+        lineItemId:
+          type: string
+          description: Line item identifier
+          example: LINE-001
+        description:
+          type: string
+          description: Item description
+          example: Monthly subscription - Premium Plan
+        quantity:
+          type: integer
+          description: Quantity of items
+          example: 1
+        unitPrice:
+          type: number
+          format: float
+          description: Price per unit
+          example: 149.99
+        amount:
+          type: number
+          format: float
+          description: Total line item amount
+          example: 149.99
+
+    RefundRequest:
+      type: object
+      required:
+        - transactionId
+        - amount
+        - reason
+      properties:
+        transactionId:
+          type: string
+          description: Transaction ID to refund
+          example: TXN-2024-001
+        amount:
+          type: number
+          format: float
+          description: Refund amount (must not exceed original transaction amount)
+          example: 149.99
+        reason:
+          type: string
+          description: Reason for the refund
+          example: Duplicate charge identified
+        expedite:
+          type: boolean
+          description: Whether to expedite the refund (3-5 business days vs 7-10 business days)
+          example: true
+          default: false
+
+    Refund:
+      type: object
+      required:
+        - refundId
+        - transactionId
+        - amount
+        - currency
+        - status
+        - reason
+        - createdAt
+        - estimatedCompletionDate
+      properties:
+        refundId:
+          type: string
+          description: Unique refund identifier
+          example: REF-2024-001
+        transactionId:
+          type: string
+          description: Original transaction ID
+          example: TXN-2024-001
+        amount:
+          type: number
+          format: float
+          description: Refund amount
+          example: 149.99
+        currency:
+          type: string
+          description: Currency code
+          example: USD
+        status:
+          type: string
+          enum: [Pending, Processing, Completed, Failed]
+          description: Refund status
+          example: Pending
+        reason:
+          type: string
+          description: Refund reason
+          example: Duplicate charge identified
+        expedited:
+          type: boolean
+          description: Whether refund is expedited
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          description: When refund was created
+          example: '2024-01-20T14:30:00Z'
+        estimatedCompletionDate:
+          type: string
+          format: date
+          description: Estimated date refund will be completed
+          example: '2024-01-25'
+
+    Dispute:
+      type: object
+      required:
+        - disputeId
+        - customerId
+        - transactionId
+        - amount
+        - reason
+        - status
+        - createdAt
+      properties:
+        disputeId:
+          type: string
+          description: Unique dispute identifier
+          example: DISP-2024-001
+        customerId:
+          type: string
+          description: Customer identifier
+          example: CUST-12345
+        transactionId:
+          type: string
+          description: Disputed transaction ID
+          example: TXN-2024-001
+        amount:
+          type: number
+          format: float
+          description: Disputed amount
+          example: 149.99
+        currency:
+          type: string
+          description: Currency code
+          example: USD
+        reason:
+          type: string
+          description: Dispute reason
+          example: Unauthorized charge
+        status:
+          type: string
+          enum: [Open, UnderReview, Resolved, Closed]
+          description: Dispute status
+          example: UnderReview
+        createdAt:
+          type: string
+          format: date-time
+          description: When dispute was created
+          example: '2024-01-18T09:15:00Z'
+        resolution:
+          type: string
+          description: Resolution details (if resolved)
+          example: Refund issued for duplicate charge
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: string
+          description: Additional error details
+
+  responses:
+    BadRequest:
+      description: Bad request - missing or invalid parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized - API key required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Transaction Management
+    description: Operations for retrieving and analyzing transaction history
+  - name: Invoice Management
+    description: Operations for retrieving invoice details and line items
+  - name: Refund Processing
+    description: Operations for initiating and tracking refunds
+  - name: Dispute Management
+    description: Operations for retrieving dispute records

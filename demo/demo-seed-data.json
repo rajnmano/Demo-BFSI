@@ -1,0 +1,681 @@
+{
+  "customers": [
+    {
+      "customerId": "CUST-12345",
+      "name": "John Smith",
+      "email": "john.smith@example.com",
+      "phone": "+1-555-0100",
+      "accountNumber": "ACC-001",
+      "accountStatus": "Active",
+      "accountAge": 24,
+      "totalSpend": 3599.88,
+      "accountTier": "Gold"
+    },
+    {
+      "customerId": "CUST-67890",
+      "name": "Sarah Johnson",
+      "email": "sarah.johnson@example.com",
+      "phone": "+1-555-0200",
+      "accountNumber": "ACC-002",
+      "accountStatus": "Active",
+      "accountAge": 18,
+      "totalSpend": 2149.94,
+      "accountTier": "Silver"
+    },
+    {
+      "customerId": "CUST-11111",
+      "name": "Michael Chen",
+      "email": "michael.chen@example.com",
+      "phone": "+1-555-0300",
+      "accountNumber": "ACC-003",
+      "accountStatus": "Active",
+      "accountAge": 36,
+      "totalSpend": 5399.82,
+      "accountTier": "Platinum"
+    },
+    {
+      "customerId": "CUST-22222",
+      "name": "Emily Rodriguez",
+      "email": "emily.rodriguez@example.com",
+      "phone": "+1-555-0400",
+      "accountNumber": "ACC-004",
+      "accountStatus": "Active",
+      "accountAge": 12,
+      "totalSpend": 1799.88,
+      "accountTier": "Bronze"
+    },
+    {
+      "customerId": "CUST-33333",
+      "name": "David Williams",
+      "email": "david.williams@example.com",
+      "phone": "+1-555-0500",
+      "accountNumber": "ACC-005",
+      "accountStatus": "Active",
+      "accountAge": 6,
+      "totalSpend": 899.94,
+      "accountTier": "Bronze"
+    }
+  ],
+  "transactions": [
+    {
+      "transactionId": "TXN-2024-001234",
+      "customerId": "CUST-12345",
+      "amount": 149.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-15T10:30:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Monthly subscription - Premium Plan",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98765"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "4242"
+      },
+      "invoiceId": "INV-2024-001"
+    },
+    {
+      "transactionId": "TXN-2024-001235",
+      "customerId": "CUST-12345",
+      "amount": 149.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-15T10:31:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Monthly subscription - Premium Plan",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98766"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "4242"
+      },
+      "invoiceId": "INV-2024-001",
+      "notes": "DUPLICATE CHARGE - Same service charged twice within 1 minute"
+    },
+    {
+      "transactionId": "TXN-2024-001236",
+      "customerId": "CUST-12345",
+      "amount": 49.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-20T14:15:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Additional user license",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98767"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "4242"
+      },
+      "invoiceId": "INV-2024-002"
+    },
+    {
+      "transactionId": "TXN-2024-001237",
+      "customerId": "CUST-67890",
+      "amount": 199.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-10T09:00:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Annual subscription - Business Plan",
+      "vendorInfo": {
+        "vendorId": "VENDOR-456",
+        "vendorName": "CloudTech Solutions",
+        "vendorTransactionId": "CLOUD-TXN-12345"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "5555"
+      },
+      "invoiceId": "INV-2024-003"
+    },
+    {
+      "transactionId": "TXN-2024-001238",
+      "customerId": "CUST-67890",
+      "amount": 299.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-12T11:30:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Professional services - Consulting",
+      "vendorInfo": {
+        "vendorId": "VENDOR-123",
+        "vendorName": "Expert Consultants Inc",
+        "vendorTransactionId": "CONS-TXN-55555"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "5555"
+      },
+      "invoiceId": "INV-2024-004",
+      "notes": "VENDOR ERROR - Customer was charged for 3 hours instead of 2 hours at $99.99/hour"
+    },
+    {
+      "transactionId": "TXN-2024-001239",
+      "customerId": "CUST-11111",
+      "amount": 449.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-05T16:45:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Enterprise subscription - Platinum Plan",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-11111"
+      },
+      "paymentMethod": {
+        "type": "BankAccount",
+        "last4": "7890"
+      },
+      "invoiceId": "INV-2024-005"
+    },
+    {
+      "transactionId": "TXN-2024-001240",
+      "customerId": "CUST-11111",
+      "amount": 99.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-18T13:20:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Premium support package",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-22222"
+      },
+      "paymentMethod": {
+        "type": "BankAccount",
+        "last4": "7890"
+      },
+      "invoiceId": "INV-2024-006"
+    },
+    {
+      "transactionId": "TXN-2024-001241",
+      "customerId": "CUST-22222",
+      "amount": 79.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-08T10:00:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Monthly subscription - Standard Plan",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-33333"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "1234"
+      },
+      "invoiceId": "INV-2024-007"
+    },
+    {
+      "transactionId": "TXN-2024-001242",
+      "customerId": "CUST-22222",
+      "amount": 79.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-08T10:00:30Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Monthly subscription - Standard Plan",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-33334"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "1234"
+      },
+      "invoiceId": "INV-2024-007",
+      "notes": "DUPLICATE CHARGE - Same service charged twice within 30 seconds"
+    },
+    {
+      "transactionId": "TXN-2024-001243",
+      "customerId": "CUST-33333",
+      "amount": 59.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-14T15:30:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Monthly subscription - Basic Plan",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-44444"
+      },
+      "paymentMethod": {
+        "type": "PayPal",
+        "last4": "9999"
+      },
+      "invoiceId": "INV-2024-008"
+    },
+    {
+      "transactionId": "TXN-2024-001244",
+      "customerId": "CUST-12345",
+      "amount": 25.00,
+      "currency": "USD",
+      "transactionDate": "2024-01-22T11:00:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Overage charges - API calls",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98768"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "4242"
+      },
+      "invoiceId": "INV-2024-009"
+    },
+    {
+      "transactionId": "TXN-2024-001245",
+      "customerId": "CUST-67890",
+      "amount": 15.00,
+      "currency": "USD",
+      "transactionDate": "2024-01-16T08:45:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Storage overage fee",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98769"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "5555"
+      },
+      "invoiceId": "INV-2024-010"
+    },
+    {
+      "transactionId": "TXN-2024-001246",
+      "customerId": "CUST-11111",
+      "amount": 199.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-25T14:00:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Training session - Advanced features",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98770"
+      },
+      "paymentMethod": {
+        "type": "BankAccount",
+        "last4": "7890"
+      },
+      "invoiceId": "INV-2024-011"
+    },
+    {
+      "transactionId": "TXN-2024-001247",
+      "customerId": "CUST-22222",
+      "amount": 149.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-19T12:30:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Upgrade to Premium Plan",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98771"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "1234"
+      },
+      "invoiceId": "INV-2024-012",
+      "notes": "INCORRECT CHARGE - Customer should have been charged prorated amount of $70 for mid-month upgrade, not full $149.99"
+    },
+    {
+      "transactionId": "TXN-2024-001248",
+      "customerId": "CUST-33333",
+      "amount": 29.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-21T09:15:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Add-on feature - Analytics dashboard",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98772"
+      },
+      "paymentMethod": {
+        "type": "PayPal",
+        "last4": "9999"
+      },
+      "invoiceId": "INV-2024-013"
+    },
+    {
+      "transactionId": "TXN-2024-001249",
+      "customerId": "CUST-12345",
+      "amount": 99.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-28T16:00:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Data export service",
+      "vendorInfo": {
+        "vendorId": "VENDOR-456",
+        "vendorName": "CloudTech Solutions",
+        "vendorTransactionId": "CLOUD-TXN-67890"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "4242"
+      },
+      "invoiceId": "INV-2024-014"
+    },
+    {
+      "transactionId": "TXN-2024-001250",
+      "customerId": "CUST-67890",
+      "amount": 49.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-23T10:30:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Additional storage - 100GB",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98773"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "5555"
+      },
+      "invoiceId": "INV-2024-015"
+    },
+    {
+      "transactionId": "TXN-2024-001251",
+      "customerId": "CUST-11111",
+      "amount": 349.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-26T13:45:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Custom integration development",
+      "vendorInfo": {
+        "vendorId": "VENDOR-123",
+        "vendorName": "Expert Consultants Inc",
+        "vendorTransactionId": "CONS-TXN-77777"
+      },
+      "paymentMethod": {
+        "type": "BankAccount",
+        "last4": "7890"
+      },
+      "invoiceId": "INV-2024-016"
+    },
+    {
+      "transactionId": "TXN-2024-001252",
+      "customerId": "CUST-22222",
+      "amount": 19.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-27T11:20:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Mobile app access",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98774"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "1234"
+      },
+      "invoiceId": "INV-2024-017"
+    },
+    {
+      "transactionId": "TXN-2024-001253",
+      "customerId": "CUST-33333",
+      "amount": 39.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-29T14:50:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Priority support upgrade",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98775"
+      },
+      "paymentMethod": {
+        "type": "PayPal",
+        "last4": "9999"
+      },
+      "invoiceId": "INV-2024-018"
+    },
+    {
+      "transactionId": "TXN-2024-001254",
+      "customerId": "CUST-12345",
+      "amount": 75.00,
+      "currency": "USD",
+      "transactionDate": "2024-01-30T09:00:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "API rate limit increase",
+      "vendorInfo": {
+        "vendorId": "VENDOR-789",
+        "vendorName": "AnyCompany Services",
+        "vendorTransactionId": "VEND-TXN-98776"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "4242"
+      },
+      "invoiceId": "INV-2024-019"
+    },
+    {
+      "transactionId": "TXN-2024-001255",
+      "customerId": "CUST-67890",
+      "amount": 129.99,
+      "currency": "USD",
+      "transactionDate": "2024-01-31T15:30:00Z",
+      "status": "Completed",
+      "type": "Charge",
+      "description": "Quarterly maintenance fee",
+      "vendorInfo": {
+        "vendorId": "VENDOR-456",
+        "vendorName": "CloudTech Solutions",
+        "vendorTransactionId": "CLOUD-TXN-99999"
+      },
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "5555"
+      },
+      "invoiceId": "INV-2024-020",
+      "notes": "VENDOR ERROR - Customer was charged quarterly fee but is on annual plan, should not have been charged"
+    }
+  ],
+  "invoices": [
+    {
+      "invoiceId": "INV-2024-001",
+      "customerId": "CUST-12345",
+      "invoiceDate": "2024-01-15",
+      "dueDate": "2024-02-14",
+      "totalAmount": 299.98,
+      "currency": "USD",
+      "status": "Paid",
+      "paidDate": "2024-01-16",
+      "lineItems": [
+        {
+          "lineItemId": "LINE-001",
+          "description": "Monthly subscription - Premium Plan",
+          "quantity": 1,
+          "unitPrice": 149.99,
+          "amount": 149.99,
+          "transactionId": "TXN-2024-001234"
+        },
+        {
+          "lineItemId": "LINE-002",
+          "description": "Monthly subscription - Premium Plan (DUPLICATE)",
+          "quantity": 1,
+          "unitPrice": 149.99,
+          "amount": 149.99,
+          "transactionId": "TXN-2024-001235"
+        }
+      ]
+    },
+    {
+      "invoiceId": "INV-2024-002",
+      "customerId": "CUST-12345",
+      "invoiceDate": "2024-01-20",
+      "dueDate": "2024-02-19",
+      "totalAmount": 49.99,
+      "currency": "USD",
+      "status": "Paid",
+      "paidDate": "2024-01-21",
+      "lineItems": [
+        {
+          "lineItemId": "LINE-003",
+          "description": "Additional user license",
+          "quantity": 1,
+          "unitPrice": 49.99,
+          "amount": 49.99,
+          "transactionId": "TXN-2024-001236"
+        }
+      ]
+    },
+    {
+      "invoiceId": "INV-2024-003",
+      "customerId": "CUST-67890",
+      "invoiceDate": "2024-01-10",
+      "dueDate": "2024-02-09",
+      "totalAmount": 199.99,
+      "currency": "USD",
+      "status": "Paid",
+      "paidDate": "2024-01-11",
+      "lineItems": [
+        {
+          "lineItemId": "LINE-004",
+          "description": "Annual subscription - Business Plan",
+          "quantity": 1,
+          "unitPrice": 199.99,
+          "amount": 199.99,
+          "transactionId": "TXN-2024-001237"
+        }
+      ]
+    },
+    {
+      "invoiceId": "INV-2024-004",
+      "customerId": "CUST-67890",
+      "invoiceDate": "2024-01-12",
+      "dueDate": "2024-02-11",
+      "totalAmount": 299.99,
+      "currency": "USD",
+      "status": "Paid",
+      "paidDate": "2024-01-13",
+      "lineItems": [
+        {
+          "lineItemId": "LINE-005",
+          "description": "Professional services - Consulting (3 hours @ $99.99/hour)",
+          "quantity": 3,
+          "unitPrice": 99.99,
+          "amount": 299.99,
+          "transactionId": "TXN-2024-001238",
+          "notes": "Should have been 2 hours, not 3"
+        }
+      ]
+    },
+    {
+      "invoiceId": "INV-2024-007",
+      "customerId": "CUST-22222",
+      "invoiceDate": "2024-01-08",
+      "dueDate": "2024-02-07",
+      "totalAmount": 159.98,
+      "currency": "USD",
+      "status": "Paid",
+      "paidDate": "2024-01-09",
+      "lineItems": [
+        {
+          "lineItemId": "LINE-008",
+          "description": "Monthly subscription - Standard Plan",
+          "quantity": 1,
+          "unitPrice": 79.99,
+          "amount": 79.99,
+          "transactionId": "TXN-2024-001241"
+        },
+        {
+          "lineItemId": "LINE-009",
+          "description": "Monthly subscription - Standard Plan (DUPLICATE)",
+          "quantity": 1,
+          "unitPrice": 79.99,
+          "amount": 79.99,
+          "transactionId": "TXN-2024-001242"
+        }
+      ]
+    }
+  ],
+  "refunds": [
+    {
+      "refundId": "REF-2024-001",
+      "transactionId": "TXN-2024-001235",
+      "customerId": "CUST-12345",
+      "amount": 149.99,
+      "currency": "USD",
+      "status": "Completed",
+      "reason": "Duplicate charge - system error",
+      "expedited": true,
+      "createdAt": "2024-01-17T10:00:00Z",
+      "completedAt": "2024-01-22T14:30:00Z",
+      "estimatedCompletionDate": "2024-01-22",
+      "paymentMethod": {
+        "type": "CreditCard",
+        "last4": "4242"
+      }
+    }
+  ],
+  "disputes": [
+    {
+      "disputeId": "DISP-2024-001",
+      "customerId": "CUST-67890",
+      "transactionId": "TXN-2024-001238",
+      "amount": 99.99,
+      "currency": "USD",
+      "reason": "Overcharged for consulting services - billed for 3 hours instead of 2",
+      "status": "UnderReview",
+      "createdAt": "2024-01-18T09:15:00Z",
+      "updatedAt": "2024-01-19T14:20:00Z"
+    },
+    {
+      "disputeId": "DISP-2024-002",
+      "customerId": "CUST-22222",
+      "transactionId": "TXN-2024-001242",
+      "amount": 79.99,
+      "currency": "USD",
+      "reason": "Duplicate charge for monthly subscription",
+      "status": "Resolved",
+      "createdAt": "2024-01-09T11:30:00Z",
+      "updatedAt": "2024-01-10T16:45:00Z",
+      "resolution": "Refund issued for duplicate charge",
+      "resolvedAt": "2024-01-10T16:45:00Z"
+    },
+    {
+      "disputeId": "DISP-2024-003",
+      "customerId": "CUST-67890",
+      "transactionId": "TXN-2024-001255",
+      "amount": 129.99,
+      "currency": "USD",
+      "reason": "Incorrectly charged quarterly maintenance fee - customer is on annual plan",
+      "status": "Open",
+      "createdAt": "2024-02-01T08:00:00Z",
+      "updatedAt": "2024-02-01T08:00:00Z"
+    }
+  ]
+}
