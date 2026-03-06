@@ -137,9 +137,14 @@ Your AgentCore Gateway is pre-deployed and configured. The final step is to asso
 
 The Escalate tool transfers the conversation to a human agent with context. Configure it to capture relevant information:
 
-1.  In the Agent Builder, find the **Escalate** tool (pre-configured)
-2.  Select it and **Edit** to expand the tool configuration
-3.  Update the **Instructions** field - this guides when the AI should escalate:
+1.  Open **Amazon Connect Console**
+2.  Find your instance and click **Log in**
+3.  Navigate to **AI agent designer** → **AI Agents**
+4.  Click on **Demo-Self-Service-Agent** AI agent
+5.  Click on **Edit in Agent Builder**
+2.  In the Agent Builder, find the **Escalate** tool (pre-configured)
+3.  Select it and **Edit** to expand the tool configuration
+4.  Update the **Instructions** field - this guides when the AI should escalate:
 
 Use this tool when:
 ```
