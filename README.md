@@ -133,7 +133,7 @@ Your AgentCore Gateway is pre-deployed and configured. The final step is to asso
 4.  Enable **All tools** within the gateway to grant access to all MCP tool namespaces
 5.  Click **Save** to apply changes
 
-## **Step 9:** Configure AI Agent Tools
+## **Step 10:** Configure AI Agent Tools
 Edit the AI agent
 1.  Open **Amazon Connect Console**
 2.  Find your instance and click **Log in**
@@ -248,10 +248,9 @@ Use this tool when:
 - The customer confirms they have no more questions
 - The customer says goodbye or indicates they want to end the call
 - The interaction has reached a natural conclusion
-```
 Always confirm with the customer before ending the conversation.
-
-1.  Review the **Input Schema**:
+```
+4.  Review the **Input Schema**:
 ```
 {
 "type": "object",
@@ -266,20 +265,21 @@ Always confirm with the customer before ending the conversation.
 ]
 }
 ```
-1.  Click **Update** if you made changes
+5.  Click **Update** if you made changes
 
 ### Add External MCP Tools
 1. In the Agent Builder, click Add Tool
 2. Under Add existing AI Tool, find the Namespace dropdown
 3. Select your gateway you added in the Step 8
 4. In the AI Tool selection, choose tools
+```
         ___getAccounts - get account balance
         ___getTransactions - View transaction history
         ___getInvoices - Retrieve invoice details
         ___getDisputes - Check dispute status
         ___processRefund - File a new dispute
-
-## Step 12: Create a Lex Bot
+```
+## Step 11: Create a Lex Bot
 
 Your AI Agent needs a Lex bot to handle the conversational interface. The Lex bot serves as the voice/text interface layer while the AI Agent handles intelligence and decision-making.
 
@@ -299,7 +299,7 @@ In self-service flows, the Lex bot serves as the voice/text interface layer. The
 2.  Within the bot, enable **Amazon Connect AI agent in Connect intent** by toggling, selecting your assistant ID, and confirming.
 3.  Select **Build language** to build the bot.
 
-## Step 13: Download and Import the Self-Service Flow
+## Step 12: Download and Import the Self-Service Flow
 
 We provide a pre-built Self-Service flow that includes all necessary configuration:
 
