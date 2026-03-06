@@ -144,16 +144,7 @@ The Escalate tool transfers the conversation to a human agent with context. Conf
 5.  Click on **Edit in Agent Builder**
 6.  In the Agent Builder, find the **Escalate** tool (pre-configured)
 7.  Select it and **Edit** to expand the tool configuration
-8.  Update the **Instructions** field - this guides when the AI should escalate:
-```
-Use this tool when:
-- The customer explicitly asks to speak with a human agent
-- You cannot resolve the customer's issue after reasonable attempts
-- The situation requires human judgment or authorization
-- The customer expresses frustration or dissatisfaction with AI assistance
-Before escalating, summarize the conversation context so the human agent can continue seamlessly.
-```
-9.  Update the **Input Schema** - this defines what information to capture:
+8.  Update the **Input Schema** - this defines what information to capture:
 ```
 {
 "type": "object",
@@ -205,7 +196,15 @@ Before escalating, summarize the conversation context so the human agent can con
 ]
 }
 ```
-
+9.  Update the **Instructions** field - this guides when the AI should escalate:
+```
+Use this tool when:
+- The customer explicitly asks to speak with a human agent
+- You cannot resolve the customer's issue after reasonable attempts
+- The situation requires human judgment or authorization
+- The customer expresses frustration or dissatisfaction with AI assistance
+Before escalating, summarize the conversation context so the human agent can continue seamlessly.
+```
 10.  Add **Examples** Examples help the AI understand the tone you want for escalation messages. Add these five examples:
 
 **Example 1:**
