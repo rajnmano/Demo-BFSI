@@ -27,26 +27,21 @@ git clone https://github.com/rajnmano/Demo-BFSI.git
 8.  Note your bucket name - you'll need it for CloudFormation
 9.  Upload the files downloaded from the step 1, the folder structure should be as below:
 
-ai-agents/
-
-boto3-layer/
-
-demo/
-
-flow-lex/
-
-knowledge-base/
-
-templates/
+        ai-agents/
+        boto3-layer/
+        demo/
+        flow-lex/
+        knowledge-base/
+        templates/
 
 ## **Step 3: Deploy CloudFormation Stack**
 
-### [Deploy via Console](https://catalog.workshops.aws/amazon-q-in-connect/en-US/01-foundation/03-deployment-options"%20\l%20"deploy-via-console)
+### Deploy via Console
 
 1.  Open **CloudFormation Console**: https://console.aws.amazon.com/cloudformation/  from your **chosen region**
 2.  Click **Create stack** → **With new resources (standard)**
 
-### [Specify Template](https://catalog.workshops.aws/amazon-q-in-connect/en-US/01-foundation/03-deployment-options"%20\l%20"specify-template)
+### Specify Template
 
 1.  Select **Amazon S3 URL**
 2.  Enter your template URL using this pattern: https://{your-bucket}.s3.{region}.amazonaws.com/templates/start.yaml
@@ -55,7 +50,7 @@ Example: https://ai-agent-workshop-123456789012.s3.us-east-1.amazonaws.com/temp
 
 1.  Click **Next**
 
-### [Configure Parameters](https://catalog.workshops.aws/amazon-q-in-connect/en-US/01-foundation/03-deployment-options"%20\l%20"configure-parameters)
+### Configure Parameters
 
 The parameters below are organized to match the order they appear in the CloudFormation console.
 
@@ -66,7 +61,8 @@ The parameters below are organized to match the order they appear in the CloudFo
 | **Existing Connect Instance ARN** | Amazon Connect Instance ARN<br><br>Eg. arn:aws:connect:us-east-1:123456789012:instance/aaaaaaaa-111a-222b-333c-a1s2d3f4g5h6 |
 | **Existing Connect Instance ID** | ID of an existing Amazon Connect instance<br><br>Eg. aaaaaaaa-111a-222b-333c-a1s2d3f4g5h6 |
 | **Existing Connect Instance Alias** | Alias (subdomain) of an existing Amazon Connect instance.<br><br>Eg. amazon-connect-123456789012-a1s2d3f4g5h6 |
-| **Existing Assistant ARN** | ARN of an existing Amazon Q in Connect (Wisdom) Assistant. In Amazon Connect Admin Workspace > AI agent designer > Click on any AI Agent Eg. “AnswerRecommendation” > Copy Assistant ARN |
+| **ExistingProfileId** | Profile ID of the customer who would be calling for the demo. HOW TO FIND: Loging to Agent workspace search for an existing customer profile and copy the Profile ID. <br><br> Eg. 1aa1f22b313d48158270f22d47aaaaaa |
+| **DemoSeedDataUrl** | URL for demo seed data JSON file<br><br>Eg. s3://ai-agent-workshop-123456789012/demo/demo-seed-data.json |
 | **Knowledge Base Template URL** | S3 URL for the assistant-knowledge-base.yaml nested stack template.<br><br>Eg. https://ai-agent-workshop-123456789012.s3.us-east-1.amazonaws.com/templates/assistant-knowledge-base.yaml |
 | **AI Agents Template URL** | S3 URL for the ai-agents-setup.yaml nested stack template<br><br>Eg. https://ai-agent-workshop-123456789012.s3.us-east-1.amazonaws.com/templates/ai-agents-setup.yaml |
 | **Knowledge Base Documents ZIP URL** | S3 URL for the knowledge base documents ZIP file.<br><br>Eg. https://ai-agent-workshop-123456789012.s3.us-east-1.amazonaws.com/knowledge-base/demo-kb.zip |
@@ -114,7 +110,6 @@ The pre-deployed targets have placeholder OpenAPI specifications. Update them wi
     - For Hotel, use the value from DemoOpenApiSpecS3Location
 5.  Click **Update target** to apply the changes
 
-[](https://catalog.workshops.aws/amazon-q-in-connect/en-US/01-foundation/03-deployment-options#option-a:-deploy-via-cloudshell-%28recommended%29)
 
 ## Step 8: Associating MCP Server with Amazon Connect
 
@@ -171,11 +166,11 @@ Before escalating, summarize the conversation context so the human agent can con
 "type": "string",
 "description": "Customer's emotional state during the conversation",
 "enum":
-\[
+[
 "positive",
 "neutral",
 "frustrated"
-\]
+]
 },
 "escalationSummary":
 {
@@ -188,56 +183,56 @@ Before escalating, summarize the conversation context so the human agent can con
 "type": "string",
 "description": "Category for the escalation reason",
 "enum":
-\[
+[
 "complex_booking",
 "technical_issue",
 "customer_frustration",
 "policy_exception",
 "out_of_scope",
 "other"
-\]
+]
 }
 },
 "required":
-\[
+[
 "escalationReason",
 "escalationSummary",
 "customerIntent",
 "sentiment"
-\]
+]
 }
 ```
 
 1.  Add **Examples** Examples help the AI understand the tone you want for escalation messages. Add these five examples:
 
 **Example 1:**
-
+```
 Good example - Technical difficulties:
-
+```
 &lt;message&gt;
-
+```
 I'm having trouble accessing the information you need right now. Let me connect you with a human agent who can help you further and make sure you get taken care of.
-
+```
 &lt;/message&gt;
 
 **Example 2:**
-
+```
 Good example - Frustrated customer:
-
+```
 &lt;message&gt;
-
+```
 I understand your frustration with this issue, and I want to make sure you get the help you deserve. Let me connect you with a human agent who can give this their full attention.
-
+```
 &lt;/message&gt;
 
 **Example 3:**
-
+```
 Bad example (avoid this - too abrupt, no empathy):
-
+```
 &lt;message&gt;
-
+```
 I can't help with that. Let me transfer you to someone else.
-
+```
 &lt;/message&gt;
 
 1.  Click **Update** to save your changes
@@ -251,15 +246,12 @@ The Complete tool gracefully ends the conversation. Configure it to ensure prope
 3.  Update the **Instructions** field:
 
 Use this tool when:
-
-\- The customer's issue has been fully resolved
-
-\- The customer confirms they have no more questions
-
-\- The customer says goodbye or indicates they want to end the call
-
-\- The interaction has reached a natural conclusion
-
+```
+- The customer's issue has been fully resolved
+- The customer confirms they have no more questions
+- The customer says goodbye or indicates they want to end the call
+- The interaction has reached a natural conclusion
+```
 Always confirm with the customer before ending the conversation.
 
 1.  Review the **Input Schema**:
@@ -272,9 +264,9 @@ Always confirm with the customer before ending the conversation.
 "description": "Reason of completion"
 }
 },
-"required": \[
+"required": [
 "reason"
-\]
+]
 }
 ```
 1.  Click **Update** if you made changes
