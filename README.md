@@ -133,18 +133,22 @@ Your AgentCore Gateway is pre-deployed and configured. The final step is to asso
 4.  Enable **All tools** within the gateway to grant access to all MCP tool namespaces
 5.  Click **Save** to apply changes
 
-## Step 10: Configuring the Escalate Tool
-
-The Escalate tool transfers the conversation to a human agent with context. Configure it to capture relevant information:
-
+## **Step 9:** Configure AI Agent Tools
+Edit the AI agent
 1.  Open **Amazon Connect Console**
 2.  Find your instance and click **Log in**
 3.  Navigate to **AI agent designer** → **AI Agents**
 4.  Click on **Demo-Self-Service-Agent** AI agent
 5.  Click on **Edit in Agent Builder**
-6.  In the Agent Builder, find the **Escalate** tool (pre-configured)
-7.  Select it and **Edit** to expand the tool configuration
-8.  Update the **Input Schema** - this defines what information to capture:
+   
+### Configuring the Escalate Tool
+
+The Escalate tool transfers the conversation to a human agent with context. Configure it to capture relevant information:
+
+
+1.  In the Agent Builder, find the **Escalate** tool (pre-configured)
+2.  Select it and **Edit** to expand the tool configuration
+3.  Update the **Input Schema** - this defines what information to capture:
 ```
 {
 "type": "object",
@@ -196,7 +200,7 @@ The Escalate tool transfers the conversation to a human agent with context. Conf
 ]
 }
 ```
-9.  Update the **Instructions** field - this guides when the AI should escalate:
+4.  Update the **Instructions** field - this guides when the AI should escalate:
 ```
 Use this tool when:
 - The customer explicitly asks to speak with a human agent
@@ -205,7 +209,7 @@ Use this tool when:
 - The customer expresses frustration or dissatisfaction with AI assistance
 Before escalating, summarize the conversation context so the human agent can continue seamlessly.
 ```
-10.  Add **Examples** Examples help the AI understand the tone you want for escalation messages. Add these five examples:
+5.  Add **Examples** Examples help the AI understand the tone you want for escalation messages. Add these five examples:
 
 **Example 1:**
 ```
@@ -228,9 +232,9 @@ Bad example (avoid this - too abrupt, no empathy):
 I can't help with that. Let me transfer you to someone else.
 </message>
 ```
-11.  Click **Update** to save your changes
+6.  Click **Update** to save your changes
 
-## Step 11: Configuring the Complete Tool
+### Configuring the Complete Tool
 
 The Complete tool gracefully ends the conversation. Configure it to ensure proper closure:
 
@@ -263,6 +267,17 @@ Always confirm with the customer before ending the conversation.
 }
 ```
 1.  Click **Update** if you made changes
+
+### Add External MCP Tools
+1. In the Agent Builder, click Add Tool
+2. Under Add existing AI Tool, find the Namespace dropdown
+3. Select your gateway you added in the Step 8
+4. In the AI Tool selection, choose tools
+        ___getAccounts - get account balance
+        ___getTransactions - View transaction history
+        ___getInvoices - Retrieve invoice details
+        ___getDisputes - Check dispute status
+        ___processRefund - File a new dispute
 
 ## Step 12: Create a Lex Bot
 
