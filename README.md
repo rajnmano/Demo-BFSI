@@ -271,7 +271,7 @@ Always confirm with the customer before ending the conversation.
 1. In the Agent Builder, click Add Tool
 2. Under Add existing AI Tool, find the Namespace dropdown
 3. Select your gateway you added in the Step 8
-4. In the AI Tool selection, choose tools, click on **Override Input Values**, select **customerId** set value **{{$.Custom.customerId}}**
+4. In the AI Tool selection, choose one tool at a time from the list below, click on **Override Input Values**, select **customerId** set value **{{$.Custom.customerId}}**
 ```
         ___getAccounts - get account balance
         ___getTransactions - View transaction history
