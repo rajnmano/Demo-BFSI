@@ -142,105 +142,94 @@ The Escalate tool transfers the conversation to a human agent with context. Conf
 3.  Navigate to **AI agent designer** → **AI Agents**
 4.  Click on **Demo-Self-Service-Agent** AI agent
 5.  Click on **Edit in Agent Builder**
-2.  In the Agent Builder, find the **Escalate** tool (pre-configured)
-3.  Select it and **Edit** to expand the tool configuration
-4.  Update the **Instructions** field - this guides when the AI should escalate:
+6.  In the Agent Builder, find the **Escalate** tool (pre-configured)
+7.  Select it and **Edit** to expand the tool configuration
+8.  Update the **Instructions** field - this guides when the AI should escalate:
+        ```
+        Use this tool when:
+        - The customer explicitly asks to speak with a human agent
+        - You cannot resolve the customer's issue after reasonable attempts
+        - The situation requires human judgment or authorization
+        - The customer expresses frustration or dissatisfaction with AI assistance
+        Before escalating, summarize the conversation context so the human agent can continue seamlessly.
+        ```
+9.  Update the **Input Schema** - this defines what information to capture:
+        ```
+        {
+        "type": "object",
+        "properties":
+        {
+        "customerIntent":
+        {
+        "type": "string",
+        "description": "A brief phrase (10-15words) describing what the customer wants to accomplish"
+        },
+        "sentiment":
+        {
+        "type": "string",
+        "description": "Customer's emotional state during the conversation",
+        "enum":
+        [
+        "positive",
+        "neutral",
+        "frustrated"
+        ]
+        },
+        "escalationSummary":
+        {
+        "type": "string",
+        "description": "Detailed summary for the human agent including what the customer asked for, what was attempted, and why escalation is needed",
+        "maxLength": 500
+        },
+        "escalationReason":
+        {
+        "type": "string",
+        "description": "Category for the escalation reason",
+        "enum":
+        [
+        "complex_booking",
+        "technical_issue",
+        "customer_frustration",
+        "policy_exception",
+        "out_of_scope",
+        "other"
+        ]
+        }
+        },
+        "required":
+        [
+        "escalationReason",
+        "escalationSummary",
+        "customerIntent",
+        "sentiment"
+        ]
+        }
+        ```
 
-Use this tool when:
-```
-- The customer explicitly asks to speak with a human agent
-- You cannot resolve the customer's issue after reasonable attempts
-- The situation requires human judgment or authorization
-- The customer expresses frustration or dissatisfaction with AI assistance
-```
-Before escalating, summarize the conversation context so the human agent can continue seamlessly.
+10.  Add **Examples** Examples help the AI understand the tone you want for escalation messages. Add these five examples:
 
-1.  Update the **Input Schema** - this defines what information to capture:
-```
-{
-"type": "object",
-"properties":
-{
-"customerIntent":
-{
-"type": "string",
-"description": "A brief phrase (10-15words) describing what the customer wants to accomplish"
-},
-"sentiment":
-{
-"type": "string",
-"description": "Customer's emotional state during the conversation",
-"enum":
-[
-"positive",
-"neutral",
-"frustrated"
-]
-},
-"escalationSummary":
-{
-"type": "string",
-"description": "Detailed summary for the human agent including what the customer asked for, what was attempted, and why escalation is needed",
-"maxLength": 500
-},
-"escalationReason":
-{
-"type": "string",
-"description": "Category for the escalation reason",
-"enum":
-[
-"complex_booking",
-"technical_issue",
-"customer_frustration",
-"policy_exception",
-"out_of_scope",
-"other"
-]
-}
-},
-"required":
-[
-"escalationReason",
-"escalationSummary",
-"customerIntent",
-"sentiment"
-]
-}
-```
-
-1.  Add **Examples** Examples help the AI understand the tone you want for escalation messages. Add these five examples:
-
-**Example 1:**
-```
-Good example - Technical difficulties:
-```
-&lt;message&gt;
-```
-I'm having trouble accessing the information you need right now. Let me connect you with a human agent who can help you further and make sure you get taken care of.
-```
-&lt;/message&gt;
-
-**Example 2:**
-```
-Good example - Frustrated customer:
-```
-&lt;message&gt;
-```
-I understand your frustration with this issue, and I want to make sure you get the help you deserve. Let me connect you with a human agent who can give this their full attention.
-```
-&lt;/message&gt;
-
-**Example 3:**
-```
-Bad example (avoid this - too abrupt, no empathy):
-```
-&lt;message&gt;
-```
-I can't help with that. Let me transfer you to someone else.
-```
-&lt;/message&gt;
-
-1.  Click **Update** to save your changes
+        **Example 1:**
+        ```
+        Good example - Technical difficulties:
+        <message>
+        I'm having trouble accessing the information you need right now. Let me connect you with a human agent who can help you further and make sure you get taken care of.
+        </message>
+        ```
+        **Example 2:**
+        ```
+        Good example - Frustrated customer:
+        <message>
+        I understand your frustration with this issue, and I want to make sure you get the help you deserve. Let me connect you with a human agent who can give this their full attention.
+        </message>
+        ```
+        **Example 3:**
+        ```
+        Bad example (avoid this - too abrupt, no empathy):
+        <message>
+        I can't help with that. Let me transfer you to someone else.
+        </message>
+        ```
+11.  Click **Update** to save your changes
 
 ## Step 11: Configuring the Complete Tool
 
