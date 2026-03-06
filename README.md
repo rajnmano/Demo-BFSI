@@ -85,7 +85,7 @@ The parameters below are organized to match the order they appear in the CloudFo
 
 1.  Open **Amazon Connect Console**
 2.  Find your instance and click **Log in**
-3.  Navigate to **Analytics and Optimization** → **AI Agents**
+3.  Navigate to **AI agent designer** → **AI Agents**
 4.  Verify AI Agents are created
 
 ## Step 6: Navigate to Your Pre-Deployed Gateway
