@@ -25,7 +25,7 @@ git clone https://github.com/rajnmano/Demo-BFSI.git
 6.  Keep all other defaults
 7.  Click Create bucket
 8.  Note your bucket name - you'll need it for CloudFormation
-9.  Upload the files downloaded from the step 1, the folder structure should be as below:
+9.  Upload the files downloaded from the step 1 to the S3 bucket, the folder structure in the bucket should be as below:
 
         ai-agents/
         boto3-layer/
