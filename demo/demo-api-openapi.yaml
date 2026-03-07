@@ -13,7 +13,7 @@ info:
     name: MIT
 
 servers:
-  - url: https://af4ytzbsul.execute-api.us-west-2.amazonaws.com/prod
+  - url: ${API_GATEWAY_URL}
     description: AWS API Gateway endpoint
 
 paths:
@@ -83,7 +83,91 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
+  /blockCard":
+    put:
+      operationId: blockCard
+      summary: Block a customer's card
+      description: |
+        Block a customer's card to prevent further transactions. This is a critical
+        action that should only be taken after confirming fraudulent activity or
+        upon customer request. Use this to quickly mitigate potential fraud.
+      tags:
+        - Account Management
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customerId
+              properties:
+                customerId:
+                  type: string
+                  description: Unique customer identifier (e.g., CUST-12345)
+                  example: CUST-12345
+      responses:
+        '200':
+          description: Card blocked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusMessage:
+                    type: string
+                    description: Confirmation message
+                    example: Card has been blocked successfully.
+                  status:
+                    type: string
+                    description: Operation status
+                    example: 200
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /accounts:
+    get:
+      operationId: getAccounts
+      summary: Retrieve customer account balances
+      description: |
+        Retrieve customers account balances.
+      tags:
+        - Account Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: customerId
+          in: query
+          required: true
+          description: Unique customer identifier (e.g., CUST-12345)
+          schema:
+            type: string
+            example: CUST-12345
+      responses:
+        '200':
+          description: List customer accounts and balances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Accounts'
+                  count:
+                    type: integer
+                    description: Number of Accounts returned
+                  customerId:
+                    type: string
+                    description: Customer ID that was queried
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /invoices:
     get:
       operationId: getInvoices
@@ -227,8 +311,31 @@ components:
       in: header
       name: X-API-Key
       description: API key for authentication (managed by Bedrock AgentCore Gateway)
-
   schemas:
+    Accounts:
+      type: object
+      required:
+        - customerId
+        - savings
+        - current
+        - investments
+      properties:
+        customerId:
+          type: string
+          description: Customer identifier
+          example: CUST-12345
+        savings:
+          type: string
+          description: savings account balance
+          example: 250.75
+        current:
+          type: string          
+          description: current account balance
+          example: 1250.00
+        investments:
+          type: string          
+          description: investments account balance
+          example: 5000.00
     Transaction:
       type: object
       required:

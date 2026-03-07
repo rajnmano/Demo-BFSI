@@ -1,7 +1,7 @@
 {
   "customers": [
     {
-      "customerId": "CUST-12345",
+      "customerId": "<profile-id>",
       "name": "John Smith",
       "email": "john.smith@example.com",
       "phone": "+1-555-0100",
@@ -10,56 +10,20 @@
       "accountAge": 24,
       "totalSpend": 3599.88,
       "accountTier": "Gold"
-    },
+    }
+  ],
+  "accounts": [
     {
-      "customerId": "CUST-67890",
-      "name": "Sarah Johnson",
-      "email": "sarah.johnson@example.com",
-      "phone": "+1-555-0200",
-      "accountNumber": "ACC-002",
-      "accountStatus": "Active",
-      "accountAge": 18,
-      "totalSpend": 2149.94,
-      "accountTier": "Silver"
-    },
-    {
-      "customerId": "CUST-11111",
-      "name": "Michael Chen",
-      "email": "michael.chen@example.com",
-      "phone": "+1-555-0300",
-      "accountNumber": "ACC-003",
-      "accountStatus": "Active",
-      "accountAge": 36,
-      "totalSpend": 5399.82,
-      "accountTier": "Platinum"
-    },
-    {
-      "customerId": "CUST-22222",
-      "name": "Emily Rodriguez",
-      "email": "emily.rodriguez@example.com",
-      "phone": "+1-555-0400",
-      "accountNumber": "ACC-004",
-      "accountStatus": "Active",
-      "accountAge": 12,
-      "totalSpend": 1799.88,
-      "accountTier": "Bronze"
-    },
-    {
-      "customerId": "CUST-33333",
-      "name": "David Williams",
-      "email": "david.williams@example.com",
-      "phone": "+1-555-0500",
-      "accountNumber": "ACC-005",
-      "accountStatus": "Active",
-      "accountAge": 6,
-      "totalSpend": 899.94,
-      "accountTier": "Bronze"
+      "customerId": "<profile-id>",
+      "savings": "3200.00",
+      "current": "5000.00",
+      "investments": "8200.00"
     }
   ],
   "transactions": [
     {
       "transactionId": "TXN-2024-001234",
-      "customerId": "CUST-12345",
+      "customerId": "<profile-id>",
       "amount": 149.99,
       "currency": "USD",
       "transactionDate": "2024-01-15T10:30:00Z",
@@ -79,7 +43,7 @@
     },
     {
       "transactionId": "TXN-2024-001235",
-      "customerId": "CUST-12345",
+      "customerId": "<profile-id>",
       "amount": 149.99,
       "currency": "USD",
       "transactionDate": "2024-01-15T10:31:00Z",
@@ -100,7 +64,7 @@
     },
     {
       "transactionId": "TXN-2024-001236",
-      "customerId": "CUST-12345",
+      "customerId": "<profile-id>",
       "amount": 49.99,
       "currency": "USD",
       "transactionDate": "2024-01-20T14:15:00Z",
@@ -120,7 +84,7 @@
     },
     {
       "transactionId": "TXN-2024-001237",
-      "customerId": "CUST-67890",
+      "customerId": "<profile-id>",
       "amount": 199.99,
       "currency": "USD",
       "transactionDate": "2024-01-10T09:00:00Z",
@@ -140,7 +104,7 @@
     },
     {
       "transactionId": "TXN-2024-001238",
-      "customerId": "CUST-67890",
+      "customerId": "<profile-id>",
       "amount": 299.99,
       "currency": "USD",
       "transactionDate": "2024-01-12T11:30:00Z",
@@ -161,7 +125,7 @@
     },
     {
       "transactionId": "TXN-2024-001239",
-      "customerId": "CUST-11111",
+      "customerId": "<profile-id>",
       "amount": 449.99,
       "currency": "USD",
       "transactionDate": "2024-01-05T16:45:00Z",
@@ -181,7 +145,7 @@
     },
     {
       "transactionId": "TXN-2024-001240",
-      "customerId": "CUST-11111",
+      "customerId": "<profile-id>",
       "amount": 99.99,
       "currency": "USD",
       "transactionDate": "2024-01-18T13:20:00Z",
@@ -201,7 +165,7 @@
     },
     {
       "transactionId": "TXN-2024-001241",
-      "customerId": "CUST-22222",
+      "customerId": "<profile-id>",
       "amount": 79.99,
       "currency": "USD",
       "transactionDate": "2024-01-08T10:00:00Z",
@@ -221,7 +185,7 @@
     },
     {
       "transactionId": "TXN-2024-001242",
-      "customerId": "CUST-22222",
+      "customerId": "<profile-id>",
       "amount": 79.99,
       "currency": "USD",
       "transactionDate": "2024-01-08T10:00:30Z",
@@ -242,7 +206,7 @@
     },
     {
       "transactionId": "TXN-2024-001243",
-      "customerId": "CUST-33333",
+      "customerId": "<profile-id>",
       "amount": 59.99,
       "currency": "USD",
       "transactionDate": "2024-01-14T15:30:00Z",
@@ -262,7 +226,7 @@
     },
     {
       "transactionId": "TXN-2024-001244",
-      "customerId": "CUST-12345",
+      "customerId": "<profile-id>",
       "amount": 25.00,
       "currency": "USD",
       "transactionDate": "2024-01-22T11:00:00Z",
@@ -282,7 +246,7 @@
     },
     {
       "transactionId": "TXN-2024-001245",
-      "customerId": "CUST-67890",
+      "customerId": "<profile-id>",
       "amount": 15.00,
       "currency": "USD",
       "transactionDate": "2024-01-16T08:45:00Z",
@@ -302,7 +266,7 @@
     },
     {
       "transactionId": "TXN-2024-001246",
-      "customerId": "CUST-11111",
+      "customerId": "<profile-id>",
       "amount": 199.99,
       "currency": "USD",
       "transactionDate": "2024-01-25T14:00:00Z",
@@ -322,7 +286,7 @@
     },
     {
       "transactionId": "TXN-2024-001247",
-      "customerId": "CUST-22222",
+      "customerId": "<profile-id>",
       "amount": 149.99,
       "currency": "USD",
       "transactionDate": "2024-01-19T12:30:00Z",
@@ -343,7 +307,7 @@
     },
     {
       "transactionId": "TXN-2024-001248",
-      "customerId": "CUST-33333",
+      "customerId": "<profile-id>",
       "amount": 29.99,
       "currency": "USD",
       "transactionDate": "2024-01-21T09:15:00Z",
@@ -363,7 +327,7 @@
     },
     {
       "transactionId": "TXN-2024-001249",
-      "customerId": "CUST-12345",
+      "customerId": "<profile-id>",
       "amount": 99.99,
       "currency": "USD",
       "transactionDate": "2024-01-28T16:00:00Z",
@@ -383,7 +347,7 @@
     },
     {
       "transactionId": "TXN-2024-001250",
-      "customerId": "CUST-67890",
+      "customerId": "<profile-id>",
       "amount": 49.99,
       "currency": "USD",
       "transactionDate": "2024-01-23T10:30:00Z",
@@ -403,7 +367,7 @@
     },
     {
       "transactionId": "TXN-2024-001251",
-      "customerId": "CUST-11111",
+      "customerId": "<profile-id>",
       "amount": 349.99,
       "currency": "USD",
       "transactionDate": "2024-01-26T13:45:00Z",
@@ -423,7 +387,7 @@
     },
     {
       "transactionId": "TXN-2024-001252",
-      "customerId": "CUST-22222",
+      "customerId": "<profile-id>",
       "amount": 19.99,
       "currency": "USD",
       "transactionDate": "2024-01-27T11:20:00Z",
@@ -443,7 +407,7 @@
     },
     {
       "transactionId": "TXN-2024-001253",
-      "customerId": "CUST-33333",
+      "customerId": "<profile-id>",
       "amount": 39.99,
       "currency": "USD",
       "transactionDate": "2024-01-29T14:50:00Z",
@@ -463,7 +427,7 @@
     },
     {
       "transactionId": "TXN-2024-001254",
-      "customerId": "CUST-12345",
+      "customerId": "<profile-id>",
       "amount": 75.00,
       "currency": "USD",
       "transactionDate": "2024-01-30T09:00:00Z",
@@ -483,7 +447,7 @@
     },
     {
       "transactionId": "TXN-2024-001255",
-      "customerId": "CUST-67890",
+      "customerId": "<profile-id>",
       "amount": 129.99,
       "currency": "USD",
       "transactionDate": "2024-01-31T15:30:00Z",
@@ -506,7 +470,7 @@
   "invoices": [
     {
       "invoiceId": "INV-2024-001",
-      "customerId": "CUST-12345",
+      "customerId": "<profile-id>",
       "invoiceDate": "2024-01-15",
       "dueDate": "2024-02-14",
       "totalAmount": 299.98,
@@ -534,7 +498,7 @@
     },
     {
       "invoiceId": "INV-2024-002",
-      "customerId": "CUST-12345",
+      "customerId": "<profile-id>",
       "invoiceDate": "2024-01-20",
       "dueDate": "2024-02-19",
       "totalAmount": 49.99,
@@ -554,7 +518,7 @@
     },
     {
       "invoiceId": "INV-2024-003",
-      "customerId": "CUST-67890",
+      "customerId": "<profile-id>",
       "invoiceDate": "2024-01-10",
       "dueDate": "2024-02-09",
       "totalAmount": 199.99,
@@ -574,7 +538,7 @@
     },
     {
       "invoiceId": "INV-2024-004",
-      "customerId": "CUST-67890",
+      "customerId": "<profile-id>",
       "invoiceDate": "2024-01-12",
       "dueDate": "2024-02-11",
       "totalAmount": 299.99,
@@ -595,7 +559,7 @@
     },
     {
       "invoiceId": "INV-2024-007",
-      "customerId": "CUST-22222",
+      "customerId": "<profile-id>",
       "invoiceDate": "2024-01-08",
       "dueDate": "2024-02-07",
       "totalAmount": 159.98,
@@ -626,7 +590,7 @@
     {
       "refundId": "REF-2024-001",
       "transactionId": "TXN-2024-001235",
-      "customerId": "CUST-12345",
+      "customerId": "<profile-id>",
       "amount": 149.99,
       "currency": "USD",
       "status": "Completed",
@@ -644,7 +608,7 @@
   "disputes": [
     {
       "disputeId": "DISP-2024-001",
-      "customerId": "CUST-67890",
+      "customerId": "<profile-id>",
       "transactionId": "TXN-2024-001238",
       "amount": 99.99,
       "currency": "USD",
@@ -655,7 +619,7 @@
     },
     {
       "disputeId": "DISP-2024-002",
-      "customerId": "CUST-22222",
+      "customerId": "<profile-id>",
       "transactionId": "TXN-2024-001242",
       "amount": 79.99,
       "currency": "USD",
@@ -668,7 +632,7 @@
     },
     {
       "disputeId": "DISP-2024-003",
-      "customerId": "CUST-67890",
+      "customerId": "<profile-id>",
       "transactionId": "TXN-2024-001255",
       "amount": 129.99,
       "currency": "USD",

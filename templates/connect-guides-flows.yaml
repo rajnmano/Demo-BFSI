@@ -1,0 +1,266 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description:
+  Amazon Connect Agent Screen Pop View and Contact Flow for Workshop
+
+Parameters:
+  ConnectInstanceArn:
+    Type: String
+    Description: ARN of the Amazon Connect instance
+  AiAssistantARN:
+    Type: String
+    Description: ARN of the AI assistant to be used in the contact flow
+  ProfileId:
+    Type: String
+    Description: Profile ID to be used in the contact flow
+  LambdaFunctionArn:
+    Type: String
+    Description: ARN of the Lambda function to be used in the contact flow
+  DemoAgentAssistAgentId:
+    Type: String
+    Description: AI Agent ID for the Agent Assist agent
+  DemoSelfServiceAgentId:
+    Type: String
+    Description: AI Agent ID for the Self-Service agent
+  QueueId:
+    Type: String
+    Description: Queue ID to be used in the contact flow
+
+Resources:
+  # Agent Screen Pop View
+  AgentScreenPopView:
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Type: AWS::Connect::View
+    Properties:
+      InstanceArn: !Ref ConnectInstanceArn
+      Name: !Sub '${AWS::StackName}-Agent Screen Pop'
+      Template:
+        {
+          'Head':
+            {
+              'Configuration': { 'Layout': { 'Columns': ['3', '9'] } },
+              'Integrations': [],
+              'Title': 'Agent Screen Pop',
+            },
+          'Body':
+            [
+              {
+                '_id': 'Container_1764185708801',
+                'Type': 'Container',
+                'Props': { 'Visibility': 'true', 'HideBorder': 'false' },
+                'Content':
+                  [
+                    {
+                      '_id': 'Image_1764185747054',
+                      'Type': 'Image',
+                      'Props':
+                        {
+                          'Alt': 'An image of the current customer',
+                          'Src': '$.Image_1764185747054.Src',
+                        },
+                      'Content': [],
+                      'Configuration': { 'Style': { '--img-width': '70%' } },
+                    },
+                    {
+                      '_id': 'TextBox_1764185812604',
+                      'Type': 'TextBox',
+                      'Props':
+                        {
+                          'Variant': 'div',
+                          'FontWeight': 'bold',
+                          'FontSize': 'heading-m',
+                          'TextAlign': 'left',
+                        },
+                      'Content': ['Customer Details'],
+                    },
+                    {
+                      '_id': 'AttributeSection_1764185860582',
+                      'Type': 'AttributeSection',
+                      'Props':
+                        {
+                          'Columns': '',
+                          'Items':
+                            [
+                              {
+                                'Label': 'Customer Name',
+                                'Value':
+                                  '$.AttributeSection_1764185860582.Items[0].Value',
+                              },
+                              {
+                                'Label': 'Customer ID',
+                                'Value':
+                                  '$.AttributeSection_1764185860582.Items[1].Value',
+                              },
+                            ],
+                        },
+                      'Content': [],
+                      'Configuration': { 'Layout': { 'Columns': '12' } },
+                    },
+                    {
+                      '_id': 'ButtonGroup_1764186070952',
+                      'Type': 'ButtonGroup',
+                      'Props':
+                        {
+                          'SpaceBetweenButtons': 's',
+                          'Items':
+                            [
+                              {
+                                'Variant': 'primary',
+                                'Label': 'Profile',
+                                'Action': 'ActionSelected',
+                                'IconAlign': 'left',
+                                'Disabled': 'false',
+                                'IconName': 'user-profile',
+                              },
+                              {
+                                'Label': 'Unlock',
+                                'FormAction': 'submit',
+                                'Action': 'ActionSelected',
+                                'IconName': 'unlocked',
+                              },
+                            ],
+                          'ButtonsOrientation': 'vertical',
+                        },
+                      'Content': [],
+                    },
+                  ],
+                'Configuration': { 'Layout': { 'Columns': '12' } },
+              },
+              {
+                '_id': 'Container_1764185712000',
+                'Type': 'Container',
+                'Props': { 'Visibility': 'true', 'HideBorder': 'false' },
+                'Content':
+                  [
+                    {
+                      '_id': 'EscalationReason',
+                      'Type': 'Alert',
+                      'Props':
+                        {
+                          'dismissible': 'false',
+                          'type': 'info',
+                          'level': 'page',
+                          'heading': 'Escalation Reason',
+                        },
+                      'Content': ['$.EscalationReason.Content'],
+                    },
+                    {
+                      '_id': 'CustomerAttributes',
+                      'Type': 'AttributeBar',
+                      'Props':
+                        {
+                          'Attributes':
+                            [
+                              {
+                                'Label': 'Customer Intent',
+                                'Value': '$.CustomerAttributes.Attributes[0].Value',
+                              },
+                              {
+                                'Label': 'Customer Sentiment',
+                                'Value': '$.CustomerAttributes.Attributes[1].Value',
+                              },
+                            ],
+                        },
+                      'Content': [],
+                    },
+                    {
+                      '_id': 'EscalationSummary',
+                      'Type': 'TextArea',
+                      'Props':
+                        {
+                          'DefaultValue': '$.EscalationSummary.DefaultValue',
+                          'HelperText':
+                            'This is the summary generated by the AI agent',
+                          'Required': 'false',
+                          'Label': 'Escalation Summary',
+                          'MaxLength': '2000',
+                          'Disabled': 'false',
+                          'Name': 'escalationSummary',
+                        },
+                      'Content': [],
+                    },
+                  ],
+                'Configuration': { 'Layout': { 'Columns': '12' } },
+              },
+            ],
+        }
+      Actions:
+        - ActionSelected
+      Description: Agent Screen Pop view for human escalation workshop
+
+  # Agent Screen Pop Contact Flow
+  AgentScreenPopContactFlow:
+    Type: AWS::Connect::ContactFlow
+    DependsOn:
+      - AgentScreenPopView
+    Properties:
+      InstanceArn: !Ref ConnectInstanceArn
+      Name: !Sub '${AWS::StackName}-Agent Screen Pop'
+      Type: CONTACT_FLOW
+      Content: !Sub
+        - |
+          {"Version":"2019-10-30","StartAction":"5f4ce637-b5dd-4a7f-9073-fc145ce35fa5","Metadata":{"entryPointPosition":{"x":40,"y":40},"ActionMetadata":{"5f4ce637-b5dd-4a7f-9073-fc145ce35fa5":{"position":{"x":160.8,"y":59.2}},"93c24198-53b6-4a5d-8d5e-ae93e06a302b":{"position":{"x":710.4,"y":456}},"d5d2a164-48a9-42c4-9e09-e67a0863893d":{"position":{"x":448.8,"y":50.4},"parameters":{"ViewResource":{"Id":{"displayName":"Agent Screen Pop"}},"InvocationTimeLimitSeconds":{"unit":60},"ViewData":{"AttributeSection_1764185860582":{"useJson":true},"CustomerAttributes":{"useJson":true},"Image_1764185747054":{"useJson":true},"EscalationReason":{"useJson":true},"EscalationSummary":{"useJson":true}}}},"79a9c245-f620-4136-a5c5-f311e2e2027a":{"position":{"x":698.4,"y":54.4},"parameters":{"ViewResource":{"Id":{"displayName":"Agent Screen Pop"}},"InvocationTimeLimitSeconds":{"unit":60},"ViewData":{"AttributeSection_1764185860582":{"useJson":true},"CustomerAttributes":{"useJson":true},"Image_1764185747054":{"useJson":true},"EscalationReason":{"useJson":true},"EscalationSummary":{"useJson":true}}}}},"Annotations":[]},"Actions":[{"Parameters":{"FlowLoggingBehavior":"Enabled"},"Identifier":"5f4ce637-b5dd-4a7f-9073-fc145ce35fa5","Type":"UpdateFlowLoggingBehavior","Transitions":{"NextAction":"d5d2a164-48a9-42c4-9e09-e67a0863893d"}},{"Parameters":{},"Identifier":"93c24198-53b6-4a5d-8d5e-ae93e06a302b","Type":"DisconnectParticipant","Transitions":{}},{"Parameters":{"ViewResource":{"Id":"arn:aws:connect:${AWS::Region}:${AWS::AccountId}:instance/${InstanceId}/view/${AgentScreenPopViewId}:$LATEST"},"InvocationTimeLimitSeconds":"1200","ViewData":{"AttributeSection_1764185860582":{"Items":[{"Value":"$.Attributes.customerFirstName"},{"Value":"$.Attributes.ProfileId"}]},"CustomerAttributes":{"Attributes":[{"Value":"$.Attributes.customerIntent"},{"Value":"$.Attributes.sentiment"}]},"Image_1764185747054":{"Src":"https://d1sk9q2brplra3.cloudfront.net/order-app/sofia_customer.png"},"EscalationReason":{"Content":"$.Attributes.escalationReason"},"EscalationSummary":{"DefaultValue":"$.Attributes.escalationSummary"}}},"Identifier":"d5d2a164-48a9-42c4-9e09-e67a0863893d","Type":"ShowView","Transitions":{"NextAction":"93c24198-53b6-4a5d-8d5e-ae93e06a302b","Conditions":[{"NextAction":"79a9c245-f620-4136-a5c5-f311e2e2027a","Condition":{"Operator":"Equals","Operands":["ActionSelected"]}}],"Errors":[{"NextAction":"79a9c245-f620-4136-a5c5-f311e2e2027a","ErrorType":"NoMatchingCondition"},{"NextAction":"93c24198-53b6-4a5d-8d5e-ae93e06a302b","ErrorType":"NoMatchingError"},{"NextAction":"93c24198-53b6-4a5d-8d5e-ae93e06a302b","ErrorType":"TimeLimitExceeded"}]}},{"Parameters":{"ViewResource":{"Id":"arn:aws:connect:${AWS::Region}:${AWS::AccountId}:instance/${InstanceId}/view/${AgentScreenPopViewId}:$LATEST"},"InvocationTimeLimitSeconds":"1200","ViewData":{"AttributeSection_1764185860582":{"Items":[{"Value":"$.Attributes.customerFirstName"},{"Value":"$.Attributes.ProfileId"}]},"CustomerAttributes":{"Attributes":[{"Value":"$.Attributes.customerIntent"},{"Value":"$.Attributes.sentiment"}]},"Image_1764185747054":{"Src":"https://d1sk9q2brplra3.cloudfront.net/order-app/sofia_customer.png"},"EscalationReason":{"Content":"$.Attributes.escalationReason"},"EscalationSummary":{"DefaultValue":"$.Attributes.escalationSummary"}}},"Identifier":"79a9c245-f620-4136-a5c5-f311e2e2027a","Type":"ShowView","Transitions":{"NextAction":"93c24198-53b6-4a5d-8d5e-ae93e06a302b","Conditions":[{"NextAction":"d5d2a164-48a9-42c4-9e09-e67a0863893d","Condition":{"Operator":"Equals","Operands":["ActionSelected"]}}],"Errors":[{"NextAction":"d5d2a164-48a9-42c4-9e09-e67a0863893d","ErrorType":"NoMatchingCondition"},{"NextAction":"93c24198-53b6-4a5d-8d5e-ae93e06a302b","ErrorType":"NoMatchingError"},{"NextAction":"93c24198-53b6-4a5d-8d5e-ae93e06a302b","ErrorType":"TimeLimitExceeded"}]}}]}
+        - InstanceId: !Select [1, !Split ['/', !Ref ConnectInstanceArn]]
+          AgentScreenPopViewId:
+            !Select [3, !Split ['/', !Ref AgentScreenPopView]]
+      Description: Agent Screen Pop contact flow for human escalation workshop
+  
+  # Inbound Contact Flow
+  InboundContactFlow:
+    Type: AWS::Connect::ContactFlow
+    DependsOn:
+      - AgentScreenPopContactFlow
+    Properties:
+      InstanceArn: !Ref ConnectInstanceArn 
+      Name: !Sub '${AWS::StackName}-Demo-In'
+      Type: CONTACT_FLOW
+      Content: !Sub
+        - |
+          {"Version":"2019-10-30","StartAction":"9b14cd2d-af83-4aa2-9bad-cb2b9de25438","Metadata":{"entryPointPosition":{"x":-1144.8,"y":-7.2},"ActionMetadata":{"32f3899b-1213-443f-9143-37d1b28f9eab":{"position":{"x":1540.8,"y":45.6},"parameters":{"Attributes":{"workingQueue":{"useDynamic":true}}},"dynamicParams":["workingQueue","customerFirstName","ProfileId","customerIntent","sentiment","escalationReason","escalationSummary"]},"227f8cd4-21ed-4a87-8036-8a56a2348c40":{"position":{"x":1794.4,"y":28.8}},"d6000078-68fd-4cf3-9c3a-03e58b3ffb19":{"position":{"x":2048,"y":292}},"91abca66-52b9-457d-8dfe-9a63dbfd6e3b":{"position":{"x":1270.4,"y":30.4},"parameters":{"QueueId":{"displayName":"BasicQueue"}},"queue":{"text":"BasicQueue"}},"0a7f3a85-d408-4a30-b711-650622c757af":{"position":{"x":736,"y":6.4},"children":["676634f0-c1b6-400a-9636-91db34c32266","ed7de49e-0315-4149-9337-b8ac95192199"],"parameters":{"WisdomAssistantArn":{"useAIAgentDropdown":true,"aiAgentName":"Demo-Self-Service-Agent","aiAgentVersionArn":"${AIAssistantArn}/${DemoSelfServiceAgentId}:$LATEST"}},"fragments":{"SetContactData":"676634f0-c1b6-400a-9636-91db34c32266"},"useAIAgentDropdown":true,"aiAgentName":"Demo-Self-Service-Agent","aiAgentVersionArn":"${AIAssistantArn}/${DemoSelfServiceAgentId}:$LATEST"},"676634f0-c1b6-400a-9636-91db34c32266":{"position":{"x":736,"y":6.4},"dynamicParams":[]},"ed7de49e-0315-4149-9337-b8ac95192199":{"position":{"x":736,"y":6.4},"parameters":{"LexV2Bot":{"AliasArn":{"displayName":"TestBotAlias","useLexBotDropdown":true,"lexV2BotName":"Demo-Sample-Lex"}}},"dynamicMetadata":{"x-amz-lex:q-in-connect:ai-agent-arn":false},"useLexBotDropdown":true,"lexV2BotName":"Demo-Sample-Lex","lexV2BotAliasName":"TestBotAlias","conditionMetadata":[]},"e74533c3-1740-4c5d-b160-8d0c3e0b1a7b":{"position":{"x":1007.2,"y":7.2},"conditions":[],"conditionMetadata":[{"id":"5a027cb1-80ac-4e7d-af1a-7e1a50afcaca","operator":{"name":"Equals","value":"Equals","shortDisplay":"="},"value":"Escalate"},{"id":"a5881ed8-86c4-4349-bfb2-05676a010fa5","operator":{"name":"Equals","value":"Equals","shortDisplay":"="},"value":"Complete"}]},"4df3b83e-e2d2-4c19-9bdc-b86f5b9e3ee7":{"position":{"x":468.8,"y":5.6},"parameters":{"TextToSpeechVoice":{"languageCode":"en-US"}},"overrideConsoleVoice":false},"Update session data Lambda":{"position":{"x":170.4,"y":0.8},"isFriendlyName":true,"parameters":{"LambdaFunctionARN":{"displayName":"UpdateSessionData"},"LambdaInvocationAttributes":{"firstName":{"useDynamic":true},"lastName":{"useDynamic":true},"customerId":{"useDynamic":true}}},"dynamicMetadata":{"firstName":true,"lastName":true,"customerId":true}},"f4bc796f-d91f-4130-b9a9-8ef1fcc3db82":{"position":{"x":-186.4,"y":-15.2},"children":["4a194e7b-c094-4670-90a4-2a6cf61c3fc6"],"parameters":{"OrchestrationAIAgentConfiguration":{"AgentAssistanceAgentVersionArn":{"useAIAgentDropdown":true,"aiAgentName":"Demo-Agent-Assist-Agent"}}},"fragments":{"SetContactData":"4a194e7b-c094-4670-90a4-2a6cf61c3fc6"},"useAIAgentDropdown":true,"aiAgentName":"Demo-Agent-Assist-Agent"},"4a194e7b-c094-4670-90a4-2a6cf61c3fc6":{"position":{"x":-186.4,"y":-15.2},"dynamicParams":[]},"a618995c-f2ad-490f-8fe4-6d0f3b24694f":{"position":{"x":-513.6,"y":-27.2},"parameters":{"ProfileRequestData":{"IdentifierName":{"displayName":"Profile ID"}}},"useDynamic":{"IdentifierName":true},"customerProfilesAction":"GetCustomerProfile"},"9b14cd2d-af83-4aa2-9bad-cb2b9de25438":{"position":{"x":-996.8,"y":-22.4}},"c88d96b7-d3f6-4a83-b994-698fa7ff5b95":{"position":{"x":-756.8,"y":-8.8},"parameters":{"EventHooks":{"DefaultAgentUI":{"displayName":"Default Agent UI"}}}}},"Annotations":[],"name":"Demo-In","description":"","type":"contactFlow","status":"published","hash":{}},"Actions":[{"Parameters":{"Attributes":{"workingQueue":"$.Queue.Name","customerFirstName":"$.Customer.FirstName","ProfileId":"$.Customer.ProfileId","customerIntent":"$.Lex.SessionAttributes.customerIntent","sentiment":"$.Lex.SessionAttributes.sentiment","escalationReason":"$.Lex.SessionAttributes.escalationReason","escalationSummary":"$.Lex.SessionAttributes.escalationSummary"},"TargetContact":"Current"},"Identifier":"32f3899b-1213-443f-9143-37d1b28f9eab","Type":"UpdateContactAttributes","Transitions":{"NextAction":"227f8cd4-21ed-4a87-8036-8a56a2348c40","Errors":[{"NextAction":"227f8cd4-21ed-4a87-8036-8a56a2348c40","ErrorType":"NoMatchingError"}]}},{"Parameters":{},"Identifier":"227f8cd4-21ed-4a87-8036-8a56a2348c40","Type":"TransferContactToQueue","Transitions":{"NextAction":"d6000078-68fd-4cf3-9c3a-03e58b3ffb19","Errors":[{"NextAction":"d6000078-68fd-4cf3-9c3a-03e58b3ffb19","ErrorType":"QueueAtCapacity"},{"NextAction":"d6000078-68fd-4cf3-9c3a-03e58b3ffb19","ErrorType":"NoMatchingError"}]}},{"Parameters":{},"Identifier":"d6000078-68fd-4cf3-9c3a-03e58b3ffb19","Type":"DisconnectParticipant","Transitions":{}},{"Parameters":{"QueueId":"arn:aws:connect:${AWS::Region}:${AWS::AccountId}:instance/${InstanceId}/queue/${QueueId}"},"Identifier":"91abca66-52b9-457d-8dfe-9a63dbfd6e3b","Type":"UpdateContactTargetQueue","Transitions":{"NextAction":"32f3899b-1213-443f-9143-37d1b28f9eab","Errors":[{"NextAction":"32f3899b-1213-443f-9143-37d1b28f9eab","ErrorType":"NoMatchingError"}]}},{"Parameters":{"WisdomAssistantArn":"${AIAssistantArn}"},"Identifier":"0a7f3a85-d408-4a30-b711-650622c757af","Type":"CreateWisdomSession","Transitions":{"NextAction":"676634f0-c1b6-400a-9636-91db34c32266","Errors":[{"NextAction":"e74533c3-1740-4c5d-b160-8d0c3e0b1a7b","ErrorType":"NoMatchingError"}]}},{"Parameters":{"WisdomSessionArn":"$.Wisdom.SessionArn"},"Identifier":"676634f0-c1b6-400a-9636-91db34c32266","Type":"UpdateContactData","Transitions":{"NextAction":"ed7de49e-0315-4149-9337-b8ac95192199","Errors":[{"NextAction":"e74533c3-1740-4c5d-b160-8d0c3e0b1a7b","ErrorType":"NoMatchingError"}]}},{"Parameters":{"Text":"Thank you for calling AnyCompany Bank. How can I help you?","LexV2Bot":{"AliasArn":"arn:aws:lex:${AWS::Region}:${AWS::AccountId}:bot-alias/GEJER4K111/TSTALIASID"},"LexSessionAttributes":{"x-amz-lex:q-in-connect:ai-agent-arn":"${AIAssistantArn}/${DemoSelfServiceAgentId}:$LATEST"}},"Identifier":"ed7de49e-0315-4149-9337-b8ac95192199","Type":"ConnectParticipantWithLexBot","Transitions":{"NextAction":"e74533c3-1740-4c5d-b160-8d0c3e0b1a7b","Errors":[{"NextAction":"e74533c3-1740-4c5d-b160-8d0c3e0b1a7b","ErrorType":"NoMatchingCondition"},{"NextAction":"e74533c3-1740-4c5d-b160-8d0c3e0b1a7b","ErrorType":"NoMatchingError"}]}},{"Parameters":{"ComparisonValue":"$.Lex.SessionAttributes.Tool"},"Identifier":"e74533c3-1740-4c5d-b160-8d0c3e0b1a7b","Type":"Compare","Transitions":{"NextAction":"91abca66-52b9-457d-8dfe-9a63dbfd6e3b","Conditions":[{"NextAction":"91abca66-52b9-457d-8dfe-9a63dbfd6e3b","Condition":{"Operator":"Equals","Operands":["Escalate"]}},{"NextAction":"d6000078-68fd-4cf3-9c3a-03e58b3ffb19","Condition":{"Operator":"Equals","Operands":["Complete"]}}],"Errors":[{"NextAction":"91abca66-52b9-457d-8dfe-9a63dbfd6e3b","ErrorType":"NoMatchingCondition"}]}},{"Parameters":{"TextToSpeechVoice":"Matthew"},"Identifier":"4df3b83e-e2d2-4c19-9bdc-b86f5b9e3ee7","Type":"UpdateContactTextToSpeechVoice","Transitions":{"NextAction":"0a7f3a85-d408-4a30-b711-650622c757af","Errors":[{"NextAction":"0a7f3a85-d408-4a30-b711-650622c757af","ErrorType":"NoMatchingError"}]}},{"Parameters":{"LambdaFunctionARN":"${LambdaFunctionArn}","InvocationTimeLimitSeconds":"8","InvocationType":"SYNCHRONOUS","LambdaInvocationAttributes":{"firstName":"$.Customer.FirstName","lastName":"$.Customer.LastName","customerId":"$.Customer.ProfileId"},"ResponseValidation":{"ResponseType":"STRING_MAP"}},"Identifier":"Update session data Lambda","Type":"InvokeLambdaFunction","Transitions":{"NextAction":"4df3b83e-e2d2-4c19-9bdc-b86f5b9e3ee7","Errors":[{"NextAction":"4df3b83e-e2d2-4c19-9bdc-b86f5b9e3ee7","ErrorType":"NoMatchingError"}]}},{"Parameters":{"WisdomAssistantArn":"${AIAssistantArn}","OrchestrationAIAgentConfiguration":{"AgentAssistanceAgentVersionArn":"arn:aws:wisdom:${AWS::Region}:${AWS::AccountId}:ai-agent/${AiAgentId}/${DemoAgentAssistAgentId}:$LATEST"}},"Identifier":"f4bc796f-d91f-4130-b9a9-8ef1fcc3db82","Type":"CreateWisdomSession","Transitions":{"NextAction":"4a194e7b-c094-4670-90a4-2a6cf61c3fc6","Errors":[{"NextAction":"Update session data Lambda","ErrorType":"NoMatchingError"}]}},{"Parameters":{"WisdomSessionArn":"$.Wisdom.SessionArn"},"Identifier":"4a194e7b-c094-4670-90a4-2a6cf61c3fc6","Type":"UpdateContactData","Transitions":{"NextAction":"Update session data Lambda","Errors":[{"NextAction":"Update session data Lambda","ErrorType":"NoMatchingError"}]}},{"Parameters":{"ProfileRequestData":{"IdentifierName":"_profileId","IdentifierValue":"${ProfileId}"},"ProfileResponseData":["FirstName","LastName"]},"Identifier":"a618995c-f2ad-490f-8fe4-6d0f3b24694f","Type":"GetCustomerProfile","Transitions":{"NextAction":"f4bc796f-d91f-4130-b9a9-8ef1fcc3db82","Errors":[{"NextAction":"f4bc796f-d91f-4130-b9a9-8ef1fcc3db82","ErrorType":"NoMatchingError"},{"NextAction":"f4bc796f-d91f-4130-b9a9-8ef1fcc3db82","ErrorType":"MultipleFoundError"},{"NextAction":"f4bc796f-d91f-4130-b9a9-8ef1fcc3db82","ErrorType":"NoneFoundError"}]}},{"Parameters":{"FlowLoggingBehavior":"Enabled"},"Identifier":"9b14cd2d-af83-4aa2-9bad-cb2b9de25438","Type":"UpdateFlowLoggingBehavior","Transitions":{"NextAction":"c88d96b7-d3f6-4a83-b994-698fa7ff5b95"}},{"Parameters":{"EventHooks":{"DefaultAgentUI":"${AgentScreenPopContactFlowARN}"}},"Identifier":"c88d96b7-d3f6-4a83-b994-698fa7ff5b95","Type":"UpdateContactEventHooks","Transitions":{"NextAction":"a618995c-f2ad-490f-8fe4-6d0f3b24694f","Errors":[{"NextAction":"a618995c-f2ad-490f-8fe4-6d0f3b24694f","ErrorType":"NoMatchingError"}]}}]}
+        - InstanceId: !Select [1, !Split ['/', !Ref ConnectInstanceArn]]
+          AgentScreenPopContactFlowARN: !GetAtt AgentScreenPopContactFlow.ContactFlowArn
+          ProfileId: !Ref ProfileId
+          AIAssistantArn: !Ref AiAssistantARN 
+          LambdaFunctionArn: !Ref LambdaFunctionArn
+          DemoAgentAssistAgentId: !Ref DemoAgentAssistAgentId
+          DemoSelfServiceAgentId: !Ref DemoSelfServiceAgentId
+          QueueId: !Ref QueueId
+          AiAgentId: !Select [1, !Split ['/', !Ref AiAssistantARN]]
+      Description: Inbound contact flow for human escalation workshop
+
+Outputs:
+  AgentScreenPopViewArn:
+    Description: ARN for Agent Screen Pop view
+    Value: !GetAtt AgentScreenPopView.ViewArn
+    Export:
+      Name: !Sub '${AWS::StackName}-agent-screen-pop-view-arn'
+
+  AgentScreenPopViewId:
+    Description: ID for Agent Screen Pop view
+    Value: !Select [3, !Split ['/', !Ref AgentScreenPopView]]
+    Export:
+      Name: AgentScreenPopViewId
+
+  AgentScreenPopContactFlowArn:
+    Description: ARN for Agent Screen Pop contact flow
+    Value: !GetAtt AgentScreenPopContactFlow.ContactFlowArn
+    Export:
+      Name: !Sub '${AWS::StackName}-agent-screen-pop-flow-arn'
+
+  AgentScreenPopContactFlowId:
+    Description: ID for Agent Screen Pop contact flow
+    Value: !Ref AgentScreenPopContactFlow
+    Export:
+      Name: AgentScreenPopContactFlowId
+  
+  InboundContactFlowArn:
+    Description: ARN for Inbound contact flow
+    Value: !GetAtt InboundContactFlow.ContactFlowArn
+    Export:
+      Name: !Sub '${AWS::StackName}-inbound-flow-arn'
+
+  InboundContactFlowId:
+    Description: ID for Inbound contact flow
+    Value: !Ref InboundContactFlow
+    Export:
+      Name: InboundContactFlowId

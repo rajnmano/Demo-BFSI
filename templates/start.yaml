@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Unified Workshop Stack - Orchestrator for Amazon Connect AI Agent demos across multiple industries'
+Description: 'Banking Demo - Orchestrator for Amazon Connect AI Agent demos across multiple industries'
 
 # =============================================================================
 # Copyright 2026 Amazon Web Services
@@ -37,18 +37,31 @@ Metadata:
           - ExistingConnectInstanceAlias
           - ExistingAssistantArn
           - ExistingAssistantId
+          - ExistingProfileId
+          - ExistingQueueId
       - Label:
           default: 'Template URLs'
         Parameters:
-          - ConnectInstanceStackUrl
-          - AssistantSetupStackUrl
-          - AssistantLoggingStackUrl
-          - InstanceAttributesStackUrl
           - AssistantKnowledgeBaseStackUrl
           - AIAgentsStackUrl
           - KnowledgeBaseZipUrl
           - DemoApiStackUrl
           - AgentCoreGatewayStackUrl
+          - UpdateSessionStackUrl
+          - ConnectContactFlowStackUrl
+      - Label:
+          default: 'Demo Mock APIs and Seed Data'
+        Parameters:
+          - Boto3LayerArn
+          - Boto3LayerS3Bucket
+          - Boto3LayerS3Key
+          - DemoSeedDataUrl
+          - DemoOpenApiSpecUrl
+      - Label:
+          default: 'AI Agent Prompts'
+        Parameters:
+          - DemoAgentAssistPromptUrl
+          - DemoSelfServicePromptUrl
     ParameterLabels:
       AssetsBucketName:
         default: 'Assets S3 Bucket Name'
@@ -62,14 +75,6 @@ Metadata:
         default: 'Existing Assistant ARN'
       ExistingAssistantId:
         default: 'Existing Assistant ID'
-      ConnectInstanceStackUrl:
-        default: 'Connect Instance Template URL'
-      AssistantSetupStackUrl:
-        default: 'Assistant Setup Template URL'
-      AssistantLoggingStackUrl:
-        default: 'Assistant Logging Template URL'
-      InstanceAttributesStackUrl:
-        default: 'Instance Attributes Template URL'
       AssistantKnowledgeBaseStackUrl:
         default: 'Knowledge Base Template URL'
       AIAgentsStackUrl:
@@ -179,6 +184,23 @@ Parameters:
       Then the ID is: xyz-789-abc-012
       
       IF LEFT BLANK: Only valid if ExistingAssistantArn is also blank (new assistant will be created).
+  ExistingProfileId:
+    Type: String
+    Default: '1aa1f22b313d48158270f22d47a48bc7'
+    Description: >-
+      Profile ID of the customer who would be calling for the demo.
+      
+      HOW TO FIND: Loging to Agent workspace search for an existing customer profile and copy the Profile ID.
+      Example: 1aa1f22b313d48158270f22d47aaaaaa
+
+  ExistingQueueId:
+    Type: String
+    Default: 'd3624e87-7545-4a60-ac61-f745155cf148'
+    Description: >-
+      Queue ID of the queue that will be used as the contact target in the Connect flows.
+      
+      HOW TO FIND: Loging to Amazon Connect Admin workspace > Routing > Queues > Click on the queue you want to use > Copy the Queue ID from the URL or details page.
+      Example: d3624e87-7545-4a60-ac61-f745155cf148
 
   AssistantKnowledgeBaseStackUrl:
     Type: String
@@ -196,7 +218,34 @@ Parameters:
       3. Copy the Object URL (not the S3 URI)
       
       REQUIRED: Yes, when CreateKnowledgeBase is set to 'true'.
-
+  ConnectContactFlowStackUrl: 
+    Type: String
+    Default: 'https://my-demo-portal-billing.s3.us-east-1.amazonaws.com/templates/connect-guides-flows.yaml'
+    Description: >-
+      S3 URL for the connect-contact-flows.yaml nested stack template.
+      
+      FORMAT: https://{bucket-name}.s3.{region}.amazonaws.com/templates/connect-guides-flows.yaml
+      
+      EXAMPLE: https://my-demo-portal-billing.s3.us-east-1.amazonaws.com/templates/connect-guides-flows.yaml
+      
+      HOW TO CONSTRUCT:
+      1. Go to S3 Console > Your assets bucket > templates folder
+      2. Click on connect-guides-flows.yaml
+      3. Copy the Object URL (not the S3 URI)
+  UpdateSessionStackUrl:
+    Type: String
+    Default: 'https://my-demo-portal-billing.s3.us-east-1.amazonaws.com/templates/connect-updatesession.yaml'
+    Description: >-
+      S3 URL for the assistant-knowledge-base.yaml nested stack template.
+      
+      FORMAT: https://{bucket-name}.s3.{region}.amazonaws.com/templates/connect-updatesession.yaml
+      
+      EXAMPLE: https://my-demo-portal-billing.s3.us-east-1.amazonaws.com/templates/connect-updatesession.yaml
+      
+      HOW TO CONSTRUCT:
+      1. Go to S3 Console > Your assets bucket > templates folder
+      2. Click on connect-updatesession.yaml
+      3. Copy the Object URL (not the S3 URI)
   DemoApiStackUrl:
     Type: String
     Default: 'https://my-demo-portal-billing.s3.us-east-1.amazonaws.com/templates/demo-api.yaml'
@@ -213,8 +262,6 @@ Parameters:
       3. Copy the Object URL (not the S3 URI)
       
       REQUIRED: Yes, when IndustryMode is 'all' or 'demo'.
-
-
   AgentCoreGatewayStackUrl:
     Type: String
     Default: 'https://my-demo-portal-billing.s3.us-east-1.amazonaws.com/templates/agentcore-gateway.yaml'
@@ -481,7 +528,41 @@ Resources:
     Properties:
       ServiceToken: !GetAtt SharedApiKeyFn.Arn
       ApiKeyId: !Ref SharedApiKey
+  #===========================================================================
+  # SHARED INFRASTRUCTURE NESTED STACKS (Always Deployed)
+  # ===========================================================================
+  # They provide the core Amazon Connect a lambda function that updates the assistance session data.
 
+  ConnectGuidesStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Ref ConnectContactFlowStackUrl
+      Parameters:
+        AiAssistantARN: !Ref ExistingAssistantArn
+        ConnectInstanceArn: !Ref ExistingConnectInstanceArn
+        ProfileId: !Ref ExistingProfileId
+        LambdaFunctionArn: !GetAtt UpddateSessionStack.Outputs.LambdaFunctionArn
+        DemoSelfServiceAgentId: !GetAtt AIAgentsStack.Outputs.DemoSelfServiceAgentId
+        DemoAgentAssistAgentId: !GetAtt AIAgentsStack.Outputs.DemoAgentAssistAgentId
+        QueueId: !Ref ExistingQueueId
+      Tags:
+        - Key: Purpose
+          Value: create guides and flows for Amazon Connect AI Assistant demos
+# ===========================================================================
+  # SHARED INFRASTRUCTURE NESTED STACKS (Always Deployed)
+  # ===========================================================================
+  # They provide the core Amazon Connect a lambda function that updates the assistance session data.
+
+  UpddateSessionStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Ref UpdateSessionStackUrl
+      Parameters:
+        AiAssistantARN: !Ref ExistingAssistantArn
+        ConnectInstanceARN: !Ref ExistingConnectInstanceArn
+      Tags:
+        - Key: Purpose
+          Value: update session lambda function for Amazon Connect AI Assistant demos
   # ===========================================================================
   # SHARED INFRASTRUCTURE NESTED STACKS (Always Deployed)
   # ===========================================================================
@@ -518,6 +599,7 @@ Resources:
         SeedDataUrl: !Ref DemoSeedDataUrl
         OpenApiSpecUrl: !Ref DemoOpenApiSpecUrl
         SharedApiKeyId: !Ref SharedApiKey
+        ProfileId: !Ref ExistingProfileId
       Tags:
         - Key: Purpose
           Value: Demo System API

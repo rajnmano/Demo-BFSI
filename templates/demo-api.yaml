@@ -24,6 +24,9 @@ Parameters:
     Type: String
     Description: '(Optional) ID of a shared API key to use instead of creating a new one. When provided, this stack will use the shared key for its usage plan.'
     Default: ''
+  ProfileId:
+    Type: String
+    Default: ''
 
 Conditions:
   UseSharedApiKey: !Not [!Equals [!Ref SharedApiKeyId, '']]
@@ -112,6 +115,8 @@ Resources:
                   - !Sub '${RefundsTable.Arn}/index/*'
                   - !GetAtt DisputesTable.Arn
                   - !Sub '${DisputesTable.Arn}/index/*'
+                  - !GetAtt AccountTable.Arn
+                  - !Sub '${AccountTable.Arn}/index/*'
         - PolicyName: XRayAccess
           PolicyDocument:
             Version: '2012-10-17'
@@ -174,6 +179,7 @@ Resources:
                   - !GetAtt InvoicesTable.Arn
                   - !GetAtt RefundsTable.Arn
                   - !GetAtt DisputesTable.Arn
+                  - !GetAtt AccountTable.Arn
         - PolicyName: S3ReadAccess
           PolicyDocument:
             Version: '2012-10-17'
@@ -240,7 +246,17 @@ Resources:
             ProjectionType: ALL
       BillingMode: PAY_PER_REQUEST
     DeletionPolicy: Delete
-
+  AccountTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: customerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: customerId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+    DeletionPolicy: Delete
   InvoicesTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -344,7 +360,7 @@ Resources:
           const s3Client = new S3Client({});
           
           // Fetch data from S3 URI (s3://bucket/key) or HTTPS URL
-          async function fetchData(url) {
+          async function fetchData(url, profileId) {
             // Handle S3 URI format: s3://bucket-name/path/to/file.json
             if (url.startsWith('s3://')) {
               const parts = url.slice(5).split('/');
@@ -353,7 +369,8 @@ Resources:
               console.log(`Fetching from S3: bucket=${bucket}, key=${key}`);
               
               const response = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-              const body = await response.Body.transformToString();
+              var body = await response.Body.transformToString();
+              body = body.replaceAll('<profile-id>', profileId);
               return JSON.parse(body);
             }
             
@@ -427,6 +444,9 @@ Resources:
               ],
               disputes: [
                 { disputeId: 'DISP-2024-001', customerId: 'CUST-67890', transactionId: 'TXN-2024-001238', amount: 99.99, currency: 'USD', reason: 'Overcharged for consulting services - billed for 3 hours instead of 2', status: 'UnderReview', createdAt: '2024-01-18T09:15:00Z', updatedAt: '2024-01-19T14:20:00Z' }
+              ],
+              accounts: [
+                { customerId: 'CUST-12345', savings: '3000', current: '5000', investments: '8000' }
               ]
             };
           }
@@ -441,12 +461,13 @@ Resources:
               }
               
               const props = event.ResourceProperties;
-              let data = props.SeedDataUrl ? await fetchData(props.SeedDataUrl) : getDefaultData();
+              let data = props.SeedDataUrl ? await fetchData(props.SeedDataUrl,props.ProfileId) : getDefaultData();
               
               if (data.transactions?.length) await batchWrite(props.TransactionsTableName, data.transactions);
               if (data.invoices?.length) await batchWrite(props.InvoicesTableName, data.invoices);
               if (data.refunds?.length) await batchWrite(props.RefundsTableName, data.refunds);
               if (data.disputes?.length) await batchWrite(props.DisputesTableName, data.disputes);
+              if (data.accounts?.length) await batchWrite(props.AccountTableName, data.accounts);
               
               await sendResponse(event, context, 'SUCCESS', {
                 TransactionCount: data.transactions?.length || 0,
@@ -467,12 +488,15 @@ Resources:
       InvoicesTableName: !Ref InvoicesTable
       RefundsTableName: !Ref RefundsTable
       DisputesTableName: !Ref DisputesTable
+      AccountTableName: !Ref AccountTable
       SeedDataUrl: !Ref SeedDataUrl
+      ProfileId: !Ref ProfileId
     DependsOn:
       - TransactionsTable
       - InvoicesTable
       - RefundsTable
       - DisputesTable
+      - AccountTable
 
   # ============================================================================
   # CUSTOM RESOURCE: API KEY VALUE RETRIEVAL
@@ -775,7 +799,118 @@ Resources:
               }
     DeletionPolicy: Delete
 
+  GetAcctFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      TracingConfig:
+        Mode: Active
+      LoggingConfig:
+        LogGroup: !Ref LambdaLogGroup
+      Environment:
+        Variables:
+          ACCOUNT_TABLE: !Ref AccountTable
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          from boto3.dynamodb.conditions import Key
 
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
+
+          def lambda_handler(event, context):
+              print(f"Event: {json.dumps(event)}")
+              
+              try:
+                  params = event.get('queryStringParameters') or {}
+                  customer_id = params.get('customerId')
+                  
+                  if not customer_id:
+                      return response(400, {'error': 'Missing required parameter', 'code': 'MISSING_CUSTOMER_ID', 'details': 'customerId is required'})
+                  
+                  result = table.query(
+                      KeyConditionExpression=Key('customerId').eq(customer_id)
+                  )
+                  
+                  accounts = result.get('Items', [])
+                  
+                  # Parse lineItems JSON string back to array
+                  for acct in accounts:
+                      if isinstance(acct.get('lineItems'), str):
+                          try:
+                              acct['lineItems'] = json.loads(acct['lineItems'])
+                          except:
+                              acct['lineItems'] = []
+                  
+                  return response(200, {
+                      'accounts': accounts,
+                      'count': len(accounts),
+                      'customerId': customer_id
+                  })
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  return response(500, {'error': 'Internal server error', 'details': str(e)})
+
+          def response(status_code, body):
+              return {
+                  'statusCode': status_code,
+                  'headers': {
+                      'Content-Type': 'application/json',
+                      'Access-Control-Allow-Origin': '*'
+                  },
+                  'body': json.dumps(body, default=str)
+              }
+    DeletionPolicy: Delete
+  PutBCardFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      TracingConfig:
+        Mode: Active
+      LoggingConfig:
+        LogGroup: !Ref LambdaLogGroup
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          from boto3.dynamodb.conditions import Key
+
+          def lambda_handler(event, context):
+              print(f"Event: {json.dumps(event)}")
+              
+              try:
+                  
+                  return response(200, {
+                      'status': 200,
+                      'StatusMessage': 'Card blocked successfully',
+                  })
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  return response(500, {'error': 'Internal server error', 'details': str(e)})
+
+          def response(status_code, body):
+              return {
+                  'statusCode': status_code,
+                  'headers': {
+                      'Content-Type': 'application/json',
+                      'Access-Control-Allow-Origin': '*'
+                  },
+                  'body': json.dumps(body, default=str)
+              }
+    DeletionPolicy: Delete
   RefundFn:
     Type: AWS::Lambda::Function
     Properties:
@@ -834,7 +969,7 @@ Resources:
                       })
                   
                   # Validate amount
-                  if float(amount) > float(txn.get('amount', 0)):
+                  if amount > float(txn.get('amount', 0)):
                       return response(400, {
                           'error': 'Invalid refund amount',
                           'code': 'INVALID_REFUND_AMOUNT',
@@ -850,7 +985,7 @@ Resources:
                   refund = {
                       'refundId': refund_id,
                       'transactionId': transaction_id,
-                      'amount': float(amount),
+                      'amount': amount,
                       'currency': txn.get('currency', 'USD'),
                       'status': 'Pending',
                       'reason': reason,
@@ -963,7 +1098,20 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BankingApi}/*'
-
+  GetAccountsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetAcctFn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BankingApi}/*'
+  PutBlockCardPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PutBCardFn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BankingApi}/*'
   GetInvoicesPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -1013,6 +1161,20 @@ Resources:
       RestApiId: !Ref BankingApi
       ParentId: !GetAtt BankingApi.RootResourceId
       PathPart: transactions
+  
+  AccountsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref BankingApi
+      ParentId: !GetAtt BankingApi.RootResourceId
+      PathPart: accounts
+
+  PutBlockCardResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref BankingApi
+      ParentId: !GetAtt BankingApi.RootResourceId
+      PathPart: blockCard
 
   InvoicesResource:
     Type: AWS::ApiGateway::Resource
@@ -1060,7 +1222,6 @@ Resources:
         - StatusCode: 200
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: true
-
   TransactionsOptionsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -1086,7 +1247,100 @@ Resources:
             method.response.header.Access-Control-Allow-Headers: true
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
+  # ============================================================================
+  # API METHODS - Put /blockCard
+  # ============================================================================
+  PutBlockCardMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref PutBlockCardResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.querystring.customerId: false
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PutBCardFn.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+  PutBlockCardOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref PutBlockCardResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'PUT,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+  # ============================================================================
+  # API METHODS - GET /accounts
+  # ============================================================================
+  
+  AccountsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref AccountsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.querystring.customerId: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAcctFn.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
 
+  AccountsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref BankingApi
+      ResourceId: !Ref AccountsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
   # ============================================================================
   # API METHODS - GET /invoices
   # ============================================================================
@@ -1250,6 +1504,10 @@ Resources:
       - RefundsOptionsMethod
       - DisputesGetMethod
       - DisputesOptionsMethod
+      - AccountsGetMethod
+      - AccountsOptionsMethod
+      - PutBlockCardMethod
+      - PutBlockCardOptionsMethod
     Properties:
       RestApiId: !Ref BankingApi
 
