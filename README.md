@@ -38,7 +38,7 @@ git clone https://github.com/rajnmano/Demo-BFSI.git
 
 ### Deploy via Console
 
-1.  Open **CloudFormation Console**: https://console.aws.amazon.com/cloudformation/  from your **chosen region**
+1.  Open **CloudFormation Console**: https://console.aws.amazon.com/cloudformation/ from your **chosen region**
 2.  Click **Create stack** → **With new resources (standard)**
 
 ### Specify Template
@@ -299,15 +299,11 @@ In self-service flows, the Lex bot serves as the voice/text interface layer. The
 2.  Within the bot, enable **Amazon Connect AI agent in Connect intent** by toggling, selecting your assistant ID, and confirming.
 3.  Select **Build language** to build the bot.
 
-## Step 12: Download and Import the Self-Service Flow
+## Step 12: Update contact Flow
 
-We provide a pre-built Self-Service flow that includes all necessary configuration:
-
-1.  Download the Self-Service flow: flow/Demo-In.json
-2.  In Amazon Connect, navigate to **Routing** → **Flows**
-3.  Click **Create flow**
-4.  Click the dropdown arrow next to **Save** and select **Import**
-5.  Select the downloaded Demo-In.json file
+We provide a pre-built contact flow that includes all necessary configuration:
+1.  In Amazon Connect, navigate to **Routing** → **Flows**
+2.  Open the flow with the name ending with **Demo-In**
 6.  Review the flow structure:
     - **Set logging behavior** - Enables flow logging for troubleshooting
     - **Create Connect Assistant session** - Initializes the AI assistant
