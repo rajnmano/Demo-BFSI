@@ -1,4 +1,4 @@
-# Amazon Connect Agentic AI Demo Setup - BFSI
+# Amazon Connect Agentic AI Demo Setup - Finance
 
 ## Orchestration AI Agents
 
@@ -8,6 +8,11 @@ Amazon Connect uses Orchestration AI Agents as the primary agent type for both s
 - Reason over results at each step to determine the next best action
 - Invoke tools to retrieve data, create records, or trigger workflows
 - Adapt behavior based on what they discover during the conversation
+## Prerequisite
+- Amazon Connect Instance. For setup instruction refer to, [Set up your Amazon Connect instance](https://docs.aws.amazon.com/connect/latest/adminguide/tutorial1-set-up-your-instance.html)
+- Enable Customer Profiles. For instruction refer to, [Enable Customer Profiles for your Amazon Connect instance](https://docs.aws.amazon.com/connect/latest/adminguide/enable-customer-profiles.html)
+- Enable Cases. For instruction refer to, [Enable Cases using the Amazon Connect console](https://docs.aws.amazon.com/connect/latest/adminguide/enable-cases.html)
+- Enable AI Agents. For instruction refer to, [Initial set-up for AI agents - Amazon Connect](https://docs.aws.amazon.com/connect/latest/adminguide/ai-agent-initial-setup.html)
 
 ## Step 1: Clone this repositry
 
@@ -15,7 +20,7 @@ Download the Git Repositry package or clone the the repositry using the blow com
 
 git clone https://github.com/rajnmano/Demo-BFSI.git
 
-## Step 2: Create S3 Bucket and upload the cloned files in Step 1
+## Step 2: Create S3 Bucket and upload the cloned files
 
 1.  Open Amazon S3 Console: https://console.aws.amazon.com/s3/ in your chosen region
 2.  Click Create bucket
@@ -45,10 +50,8 @@ git clone https://github.com/rajnmano/Demo-BFSI.git
 
 1.  Select **Amazon S3 URL**
 2.  Enter your template URL using this pattern: https://{your-bucket}.s3.{region}.amazonaws.com/templates/start.yaml
-
-Example: https://ai-agent-workshop-123456789012.s3.us-east-1.amazonaws.com/templates/start.yaml
-
-1.  Click **Next**
+        Eg. https://ai-agent-workshop-123456789012.s3.us-east-1.amazonaws.com/templates/start.yaml
+3.  Click **Next**
 
 ### Configure Parameters
 
